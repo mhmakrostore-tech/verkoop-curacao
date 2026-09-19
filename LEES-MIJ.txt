@@ -1,0 +1,25 @@
+VERKOOP CURAÇAO
+================
+
+Upload de inhoud van deze map naar de hoofdmap van de nieuwe GitHub-repository.
+GitHub Pages opent automatisch index.html.
+
+ACCOUNTS EN MENU'S
+makro@maxiwholesale.com
+  Catalogus, Product toevoegen, Klanten & historie, ORDER PICK
+
+order@curacao.com
+  Catalogus, CREDIT
+
+FIREBASE
+Project: verkoop-curacao
+Authenticatie: E-mail/wachtwoord
+Database: Cloud Firestore
+
+Publiceer ook firestore.rules via Firebase Console > Firestore Database > Rules.
+Daarmee zijn de twee accounts ook aan de databasekant beperkt.
+
+Alle zichtbare prijzen worden weergegeven met CG.
+
+De Firebase-webconfiguratie is openbare clientconfiguratie. De beveiliging
+komt van Firebase Authentication en de Firestore-regels.
