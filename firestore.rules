@@ -1,27 +1,40 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function signedIn() {
       return request.auth != null;
     }
+
     function isAdmin() {
-      return signedIn() && request.auth.token.email == 'makro@maxiwholesale.com';
+      return signedIn() &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email in [
+          'makro@maxiwholesale.com',
+          'mh.makrostore@gmail.com'
+        ];
     }
+
     function isSales() {
-      return signedIn() && request.auth.token.email == 'order@curacao.com';
+      return signedIn() &&
+        request.auth.token.email == 'order@curacao.com';
     }
+
     match /catalogProducts/{productId} {
       allow read: if isAdmin() || isSales();
       allow write: if isAdmin();
     }
+
     match /sales/{saleId} {
       allow read, create: if isAdmin() || isSales();
       allow update, delete: if isAdmin();
     }
+
     match /customers/{customerId} {
       allow read, create, update: if isAdmin() || isSales();
       allow delete: if isAdmin();
     }
+
     match /{document=**} {
       allow read, write: if isAdmin();
     }
