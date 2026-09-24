@@ -2544,6 +2544,7 @@ async function isAllowedTabletEmail(email){
 function applyRoleUI(){
   const isSales=currentRole==='sales';
   document.body.classList.toggle('tablet-mode',isSales);
+  refreshCategorySelects();
 
   document.querySelectorAll('.tabs button').forEach(btn=>{
     const adminTabs=['catalog','add','customers','pick'];
@@ -3536,7 +3537,7 @@ function refreshCategorySelects(){
   }
   if($('category')){
     const currentFilter=$('category').value||'all';
-    $('category').innerHTML='<option value="all">Alle categorieën</option>'+names.map(c=>`<option value="${safe(c)}">${safe(c)}</option>`).join('');
+    $('category').innerHTML='<option value="all">Alle categorieën</option>'+names.filter(c=>currentRole!=='sales'||!['MAKRO','MAGAZIJN'].includes(normalizeCategoryName(c))).map(c=>`<option value="${safe(c)}">${safe(c)}</option>`).join('');
     if(currentFilter==='all'||names.includes(currentFilter))$('category').value=currentFilter;
   }
   renderCategoryManager();
@@ -3694,7 +3695,7 @@ function render(){
   const q=String(searchEl.value||'').toLowerCase(),selectedCategory=String(categoryEl.value||'all'),a=String(availabilityEl.value||'all');
   const filtered=products.filter(p=>{
     const t=`${p.name||''} ${weightText(p)} ${normalizedCodes(p).each} ${normalizedCodes(p).p12} ${normalizedCodes(p).pack} ${normalizedCodes(p).crt} ${p.barcode||''} ${p.category||''}`.toLowerCase();
-    return p.internalOnly!==true&&(!q||t.includes(q))&&(selectedCategory==='all'||(p.category||'OVERIG')===selectedCategory)&&(a==='all'||(a==='available'?p.available!==false:p.available===false));
+    return p.internalOnly!==true&&(currentRole!=='sales'||!['MAKRO','MAGAZIJN'].includes(normalizeCategoryName(p.category)))&&(!q||t.includes(q))&&(selectedCategory==='all'||(p.category||'OVERIG')===selectedCategory)&&(a==='all'||(a==='available'?p.available!==false:p.available===false));
   });
 
   const groups={};
