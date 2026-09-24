@@ -94,9 +94,9 @@ window.addEventListener('unhandledrejection',function(e){
   </div>
   <label>Bestelling plaatsen als</label>
   <div class="order-type-options">
-    <label><input type="radio" name="catalogOrderType" value="E.C" checked> E.C</label>
-    <label><input type="radio" name="catalogOrderType" value="D.A"> D.A</label>
-    <label><input type="radio" name="catalogOrderType" value="D.A COOL"> D.A COOL</label>
+  <label><input type="checkbox" name="catalogOrderType" value="MQS"> MQS</label>
+<label><input type="checkbox" name="catalogOrderType" value="TOPPERS"> TOPPERS</label>
+<label><input type="checkbox" name="catalogOrderType" value="DIVERSEN"> DIVERSEN</label>
     <label><input id="catalogCreditOption" type="checkbox" value="CREDIT"> CREDIT</label>
   </div>
   <div id="catalogCartSummary" class="cart-summary">
@@ -104,7 +104,7 @@ window.addEventListener('unhandledrejection',function(e){
     <span>Totaal: CG <strong id="catalogCartTotal">0.00</strong></span>
   </div>
   <div class="button-row no-print">
-    <button id="saveCatalogOrderBtn" class="btn primary" type="button">Bestelling opslaan</button>
+   <button id="saveCatalogOrderBtn" class="btn primary" type="button">Send Order</button>
     <button id="whatsappCatalogOrderBtn" class="btn secondary" type="button">Via WhatsApp</button>
     <button id="printCatalogOrderBtn" class="btn secondary" type="button">Print / PDF</button>
     <button id="clearCatalogOrderBtn" class="btn light" type="button">Winkelmand leegmaken</button>
@@ -382,9 +382,9 @@ window.addEventListener('unhandledrejection',function(e){
     </div>
     <label>Bestelling plaatsen als</label>
     <div class="order-type-options">
-      <label><input type="radio" name="orderType" value="E.C" checked> E.C</label>
-      <label><input type="radio" name="orderType" value="D.A"> D.A</label>
-      <label><input type="radio" name="orderType" value="D.A COOL"> D.A COOL</label>
+      <label><input type="checkbox" name="orderType" value="MQS"> MQS</label>
+<label><input type="checkbox" name="orderType" value="TOPPERS"> TOPPERS</label>
+<label><input type="checkbox" name="orderType" value="DIVERSEN"> DIVERSEN</label>
       <label><input id="saleCreditOption" type="checkbox" value="CREDIT"> CREDIT</label>
     </div>
     <div id="saleItems" class="sale-items"></div>
@@ -658,7 +658,7 @@ function getProductCode(p){
   return String(p.productCode||p.code||'').trim();
 }
 function catalogOrderType(){
-  return document.querySelector('input[name="catalogOrderType"]:checked')?.value||'E.C';
+  return Array.from(document.querySelectorAll('input[name="catalogOrderType"]:checked')).map(input => input.value).join(', ');
 }
 function catalogCreditChecked(){
   return !!document.getElementById('catalogCreditOption')?.checked;
@@ -1944,7 +1944,17 @@ function getSaleItems(){
   }).filter(x=>x.productId&&x.qty>0&&Number.isFinite(x.price));
 }
 function updateSaleTotal(){$('saleTotal').textContent=getSaleItems().reduce((s,x)=>s+x.qty*x.price,0).toFixed(2);}
-function resetSale(){$('saleCustomerName').value='';$('saleNote').value='';const first=document.querySelector('input[name="orderType"][value="E.C"]');if(first)first.checked=true;const creditOpt=document.getElementById('saleCreditOption');if(creditOpt)creditOpt.checked=false;$('saleItems').innerHTML='';addSaleItem();}
+function resetSale(){
+  $('saleCustomerName').value='';
+  $('saleNote').value='';
+  document.querySelectorAll('input[name="orderType"]').forEach(input=>{
+    input.checked=false;
+  });
+  const creditOpt=document.getElementById('saleCreditOption');
+  if(creditOpt)creditOpt.checked=false;
+  $('saleItems').innerHTML='';
+  addSaleItem();
+}
 
 
 const DEFAULT_PACKAGES=[
@@ -3167,7 +3177,7 @@ async function saveSale(){
   const customerName=cleanCustomerName($('saleCustomerName').value),items=getSaleItems();
   if(!customerName)return msg($('saleMessage'),'Vul klantnaam in.',true);
   if(!items.length)return msg($('saleMessage'),'Voeg minstens één product toe.',true);
-  const selectedType=document.querySelector('input[name="orderType"]:checked')?.value||'E.C';
+  const selectedType=Array.from(document.querySelectorAll('input[name="orderType"]:checked')).map(input=>input.value).join(', ');
   const isCredit=false; // CREDIT hier is alleen een type op de gewone verkoopbon
   const total=items.reduce((s,x)=>s+x.qty*x.price,0);
   try{
