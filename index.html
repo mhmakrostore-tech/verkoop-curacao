@@ -640,10 +640,17 @@ window.addEventListener('unhandledrejection',function(e){
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
-import {getAuth,onAuthStateChanged,signOut,signInWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+import {getAuth,onAuthStateChanged,signOut,signInWithEmailAndPassword,createUserWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
 import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 
-const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
+const firebaseConfig={
+  apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",
+  authDomain:"verkoop-curacao.firebaseapp.com",
+  projectId:"verkoop-curacao",
+  storageBucket:"verkoop-curacao.firebasestorage.app",
+  messagingSenderId:"469707957925",
+  appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"
+};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
 let products=[],sales=[],customers=[],tabletUsers=[],currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
