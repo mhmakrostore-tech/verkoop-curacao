@@ -4257,17 +4257,32 @@ function cpRenderCustomerMonthlyTable(rows,label=''){
   if(!hdr.length){cpRenderTable(rows,label);return;}
   const itemCol=Number.isInteger(counterpointMeta?.itemCol)?counterpointMeta.itemCol:2;
   const descrCol=Number.isInteger(counterpointMeta?.descrCol)?counterpointMeta.descrCol:3;
-  let html='<div style="margin:8px 0;font-weight:800;font-size:17px">'+safe(label)+'</div>';
-  html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:13px">';
-  html+='<thead><tr><th rowspan="2" style="position:sticky;top:0;background:#f3f4f6;border:1px solid #d1d5db;padding:6px 8px;z-index:3">Code</th><th rowspan="2" style="position:sticky;top:0;background:#f3f4f6;border:1px solid #d1d5db;padding:6px 8px;z-index:3">Product</th>';
-  const groups=[];for(const h of hdr){const y=String(h.year||'');let g=groups[groups.length-1];if(!g||g.year!==y){g={year:y,count:0};groups.push(g);}g.count++;}
-  for(const g of groups)html+=`<th colspan="${g.count}" style="position:sticky;top:0;background:#fde047;border:1px solid #d1d5db;padding:6px 8px;text-align:center;z-index:3">${safe(g.year)}</th>`;
-  html+='</tr><tr>';
-  for(const h of hdr)html+=`<th style="position:sticky;top:29px;background:#fef08a;border:1px solid #d1d5db;padding:6px 8px;text-align:center;z-index:3">${safe(h.month)}</th>`;
-  html+='</tr></thead><tbody>';
-  for(const row of rows){const code=cpCellText(row[itemCol]),descr=cpCellText(row[descrCol]);if(!code&&!descr)continue;html+=`<tr><td style="border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap">${safe(code)}</td><td style="border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap">${safe(descr)}</td>`;for(const h of hdr){const v=cpCellText(row[h.col]);html+=`<td style="border:1px solid #e5e7eb;padding:5px 8px;text-align:center;white-space:nowrap">${safe(v)}</td>`;}html+='</tr>';}
-  html+='</tbody></table></div>';$('cpHistoryResults').innerHTML=html;
+  const currentYear=String(new Date().getFullYear());
+  const years=[...new Set(hdr.map(h=>String(h.year||'')).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
+  let html='<div style="margin:8px 0 12px;font-weight:800;font-size:17px">'+safe(label)+'</div>';
+  for(const year of years){
+    const yh=hdr.filter(h=>String(h.year||'')===year);
+    const isOpen=year===currentYear;
+    html+=`<details class="cp-year-block" ${isOpen?'open':''} style="margin:10px 0;border:1px solid #d1d5db;border-radius:10px;background:#fff;overflow:hidden">`;
+    html+=`<summary style="cursor:pointer;padding:10px 12px;font-size:18px;font-weight:900;background:#fde047;position:sticky;top:0;z-index:6">${safe(year)}${isOpen?' — HUIDIG JAAR':''}</summary>`;
+    html+='<div class="cp-year-scroll" style="overflow:auto;max-height:60vh">';
+    html+='<table style="border-collapse:separate;border-spacing:0;min-width:max-content;width:100%;font-size:13px">';
+    html+='<thead><tr>';
+    html+='<th style="position:sticky;top:0;left:0;background:#f3f4f6;border:1px solid #d1d5db;padding:7px 8px;z-index:5">Code</th>';
+    html+='<th style="position:sticky;top:0;background:#f3f4f6;border:1px solid #d1d5db;padding:7px 8px;z-index:4">Product</th>';
+    for(const h of yh)html+=`<th style="position:sticky;top:0;background:#fef08a;border:1px solid #d1d5db;padding:7px 10px;text-align:center;z-index:4">${safe(h.month)}</th>`;
+    html+='</tr></thead><tbody>';
+    for(const row of rows){
+      const code=cpCellText(row[itemCol]),descr=cpCellText(row[descrCol]);if(!code&&!descr)continue;
+      html+=`<tr><td style="position:sticky;left:0;background:white;border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap;z-index:2">${safe(code)}</td><td style="border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap">${safe(descr)}</td>`;
+      for(const h of yh){const v=cpCellText(row[h.col]);html+=`<td style="border:1px solid #e5e7eb;padding:5px 8px;text-align:center;white-space:nowrap">${safe(v)}</td>`;}
+      html+='</tr>';
+    }
+    html+='</tbody></table></div></details>';
+  }
+  $('cpHistoryResults').innerHTML=html;
 }
+
 function renderCounterpointHistory(){
   if(!$('cpHistoryResults'))return;
   if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
