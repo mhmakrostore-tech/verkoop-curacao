@@ -4327,14 +4327,17 @@ async function replaceCounterpointWorkbook(rows,fileName){
     const descr=String(row?.[descrCol]||'').trim();
     const cleanName=cpDisplayCustomerName(rawName);
     const isHeader=/^(cust name|verkopen|eindtotaal|vendor id|year|month number)$/i.test(cleanName);
-    // Een ingevulde Cust Name op een artikelregel start een nieuwe klant.
-    if(rawName && itemId && descr && !isHeader){
+    // CounterPoint zet een klantnaam soms op een aparte kopregel (bijv. * KLANTNAAM)
+    // en soms direct op de eerste artikelregel. Herken daarom beide vormen.
+    const isCustomerHeading=rawName.startsWith('*');
+    const isCustomerArticle=!!(rawName && itemId && descr);
+    if(cleanName && !isHeader && (isCustomerHeading || isCustomerArticle)){
       const key=cpCustomerKey(cleanName);
       if(!byKey.has(key))byKey.set(key,{name:cleanName,number:cpCustomerNumber(cleanName),key,rows:[]});
       current=byKey.get(key);
     }
-    // Productregels eronder hebben vaak een lege Cust Name; die horen bij de huidige klant.
-    if(current && row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
+    // Alleen echte artikelregels opslaan. Regels met lege Cust Name horen bij de laatst gevonden klant.
+    if(current && (itemId || descr))current.rows.push(row);
   }
   const unique=[...byKey.values()];
   for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}}await flush();
