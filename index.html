@@ -4275,10 +4275,10 @@ async function replaceCounterpointWorkbook(rows,fileName){
   let ops=[];
   const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
   for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();} await flush();
-  const CHUNK=100;
+  const CHUNK=50;
   for(let i=0;i<rows.length;i+=CHUNK){
     ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});
-    if(ops.length>=300)await flush();
+    if(ops.length>=10)await flush();
   }
   await flush();
   await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbook'},{merge:true});
