@@ -4305,10 +4305,19 @@ function parseCounterpointWorkbookRaw(wb){
 }
 async function replaceCounterpointWorkbook(rows,fileName){
   const old=await getDocs(collection(db,'counterpointHistory'));
-  let ops=[];const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
-  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();}await flush();
+  // Firestore heeft ook een limiet op de totale grootte van een batch.
+  // CounterPoint-documenten kunnen groot zijn, daarom maximaal 5 writes per batch.
+  let ops=[];
+  const flush=async()=>{
+    if(!ops.length)return;
+    const batchOps=ops; ops=[];
+    const b=writeBatch(db);
+    batchOps.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));
+    await b.commit();
+  };
+  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=5)await flush();}await flush();
   const CHUNK=10;
-  for(let i=0;i<rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=1)await flush();}await flush();
+  for(let i=0;i<rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=5)await flush();}await flush();
   // Maak daarnaast een lichte klantindex + aparte klantblokken voor de tablet.
   // Zoek eerst de echte kolommen op naam. CounterPoint kan extra kopregels boven de tabel hebben.
   let custCol=-1,itemCol=-1,descrCol=-1;
@@ -4336,7 +4345,7 @@ async function replaceCounterpointWorkbook(rows,fileName){
     if(current && row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
   }
   const unique=[...byKey.values()];
-  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=1)await flush();}}await flush();
+  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=5)await flush();}}await flush();
   const customers=unique.map(g=>({key:g.key,name:g.name,number:g.number})).sort((a,b)=>a.name.localeCompare(b.name));
   await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndex',customers,headerRows:rows.slice(0,8)},{merge:true});
 }
