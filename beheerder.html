@@ -4286,7 +4286,9 @@ async function loadCounterpointCustomer(key){
     const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0));
     const rows=docs.flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
     const customer=cpCustomerIndex().find(c=>c.key===key);
-    cpRenderTable(rows,customer?.name||'Klant Historie');
+    // Toon op de tablet ook de CounterPoint kopregels met jaartal en maanden.
+    const headerRows=Array.isArray(counterpointMeta?.historyHeaders)?counterpointMeta.historyHeaders:[];
+    cpRenderTable([...headerRows,...rows],customer?.name||'Klant Historie');
   }catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klantgeschiedenis laden mislukt: '+safe(e?.message||e)+'</div>';}
 }
 async function loadCounterpointHistoryOnce(force=false){
@@ -4327,6 +4329,18 @@ async function replaceCounterpointWorkbook(rows,fileName){
   }
   if(custCol<0){custCol=0;itemCol=1;descrCol=2;}
 
+  // Bewaar de Excel-kopregels apart zodat jaartal en maanden op de tablet zichtbaar zijn.
+  let firstDataRow=rows.findIndex(row=>{
+    const rawName=String(row?.[custCol]||'').trim();
+    const itemId=String(row?.[itemCol]||'').trim();
+    const descr=String(row?.[descrCol]||'').trim();
+    const cleanName=cpDisplayCustomerName(rawName);
+    const isHeader=/^(cust name|verkopen|eindtotaal|vendor id|year|month number)$/i.test(cleanName);
+    return !!(rawName && itemId && descr && !isHeader);
+  });
+  if(firstDataRow<0)firstDataRow=0;
+  const historyHeaders=rows.slice(0,firstDataRow).filter(row=>row.some(v=>String(v??'').trim()!==''));
+
   const byKey=new Map(); let current=null;
   for(const row of rows){
     const rawName=String(row?.[custCol]||'').trim();
@@ -4346,7 +4360,7 @@ async function replaceCounterpointWorkbook(rows,fileName){
   const unique=[...byKey.values()];
   for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}}await flush();
   const customers=unique.map(g=>({key:g.key,name:g.name,number:g.number})).sort((a,b)=>a.name.localeCompare(b.name));
-  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndex',customers},{merge:true});
+  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndex',customers,historyHeaders},{merge:true});
 }
 async function importCounterpointExcel(){
   if(currentRole!=='owner')return;
