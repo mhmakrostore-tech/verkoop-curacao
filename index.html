@@ -4241,6 +4241,7 @@ function cpMatches(row,q){
 }
 function cpCustomerKey(name){return String(name||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,120)||'klant';}
 function cpCustomerNumber(name){const m=String(name||'').match(/(?:^|\s)(\d{3,})(?:\s|[-–:]|$)/);return m?m[1]:'';}
+function cpDisplayCustomerName(name){return String(name||'').replace(/^\s*\*+\s*/, '').trim();}
 function cpCustomerIndex(){return Array.isArray(counterpointMeta?.customers)?counterpointMeta.customers:[];}
 function cpRenderTable(rows,label=''){
   if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
@@ -4258,9 +4259,9 @@ function renderCounterpointHistory(){
     const customers=cpCustomerIndex();
     if(!customers.length){$('cpHistoryResults').innerHTML='<div class="muted">Klantindex nog niet beschikbaar. De beheerder moet het nieuwste CounterPoint Excel-bestand één keer opnieuw importeren.</div>';return;}
     if(q.length<2){$('cpHistoryResults').innerHTML='<div class="muted">Typ minimaal 2 letters van de klantnaam of het klantnummer. De grote Excel-lijst wordt niet geladen.</div>';return;}
-    const hits=customers.filter(c=>`${c.name||''} ${c.number||''}`.toLowerCase().includes(q)).slice(0,25);
+    const hits=customers.filter(c=>`${c.name||''} ${cpDisplayCustomerName(c.name||'')} ${c.number||''}`.toLowerCase().includes(q)).slice(0,25);
     if(!hits.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen klant gevonden.</div>';return;}
-    $('cpHistoryResults').innerHTML='<div style="font-weight:800;margin:8px 0">Kies klant:</div>'+hits.map(c=>`<button type="button" class="btn light cp-customer-pick" data-key="${safe(c.key)}" style="display:block;width:100%;text-align:left;margin:6px 0">${safe(c.name)}${c.number?` · ${safe(c.number)}`:''}</button>`).join('');
+    $('cpHistoryResults').innerHTML='<div style="font-weight:800;margin:8px 0">Kies klant:</div>'+hits.map(c=>`<button type="button" class="btn light cp-customer-pick" data-key="${safe(c.key)}" style="display:block;width:100%;text-align:left;margin:6px 0">${safe(cpDisplayCustomerName(c.name))}${c.number?` · ${safe(c.number)}`:''}</button>`).join('');
     $('cpHistoryResults').querySelectorAll('.cp-customer-pick').forEach(b=>b.onclick=()=>loadCounterpointCustomer(b.dataset.key));
     return;
   }
@@ -4278,7 +4279,7 @@ async function loadCounterpointCustomer(key){
     const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0));
     const rows=docs.flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
     const customer=cpCustomerIndex().find(c=>c.key===key);
-    cpRenderTable(rows,customer?.name||'Klant Historie');
+    cpRenderTable(rows,cpDisplayCustomerName(customer?.name)||'Klant Historie');
   }catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klantgeschiedenis laden mislukt: '+safe(e?.message||e)+'</div>';}
 }
 async function loadCounterpointHistoryOnce(force=false){
@@ -4312,9 +4313,17 @@ async function replaceCounterpointWorkbook(rows,fileName){
   // Maak daarnaast een lichte klantindex + aparte klantblokken voor de tablet.
   const groups=[];let current=null;
   for(const row of rows){
-    const name=String(row?.[1]||'').trim();
-    const isHeaderName=name && !/^(cust name|verkopen|eindtotaal)$/i.test(name) && name!=='(Meerdere items)';
-    if(isHeaderName){current={name,number:cpCustomerNumber(name),key:cpCustomerKey(name),rows:[]};groups.push(current);}
+    const rawName=String(row?.[1]||'').trim();
+    const itemId=String(row?.[2]||'').trim();
+    const descr=String(row?.[3]||'').trim();
+    // CounterPoint: een nieuwe klant begint op de eerste artikelregel waar Cust Name is ingevuld.
+    // Zo worden kopregels zoals Vendor Id / Verkopen nooit als klant opgenomen.
+    const startsCustomer=rawName && itemId && descr && !/^(cust name|verkopen|eindtotaal|vendor id)$/i.test(rawName);
+    if(startsCustomer){
+      const name=cpDisplayCustomerName(rawName);
+      current={name,number:cpCustomerNumber(name),key:cpCustomerKey(name),rows:[]};
+      groups.push(current);
+    }
     if(current && row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
   }
   const unique=[];const seen=new Set();
