@@ -4233,7 +4233,7 @@ function cpCellText(v){
   return String(v);
 }
 function cpWorkbookRows(){
-  return counterpointHistory.filter(x=>x.kind==='workbookChunk').sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0)).flatMap(x=>Array.isArray(x.rows)?x.rows:[]);
+  return counterpointHistory.filter(x=>x.kind==='workbookChunk').sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0)).flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
 }
 function cpMatches(row,q){
   if(!q)return true;
@@ -4277,7 +4277,7 @@ async function replaceCounterpointWorkbook(rows,fileName){
   for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();} await flush();
   const CHUNK=100;
   for(let i=0;i<rows.length;i+=CHUNK){
-    ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:rows.slice(i,i+CHUNK)}});
+    ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});
     if(ops.length>=300)await flush();
   }
   await flush();
