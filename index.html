@@ -646,7 +646,7 @@ window.addEventListener('unhandledrejection',function(e){
       <div id="cpImportMsg" class="message"></div>
     </div>
     <div style="font-weight:800;margin:10px 0">Laatst bijgewerkt: <span id="cpLastUpdated">Nog niet bijgewerkt</span></div>
-    <input id="cpHistorySearch" placeholder="Zoek in de volledige Excel-lijst" autocomplete="off">
+    <input id="cpHistorySearch" placeholder="Zoek klantnaam of klantnummer" autocomplete="off">
     <div id="cpHistoryResults" style="margin-top:12px"></div>
   </div>
 </section>
@@ -659,7 +659,7 @@ window.addEventListener('unhandledrejection',function(e){
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
 import {getAuth,onAuthStateChanged,signOut,signInWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
-import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction,getDocs,writeBatch} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction,getDocs,writeBatch,query,where} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
@@ -4239,50 +4239,61 @@ function cpMatches(row,q){
   if(!q)return true;
   return row.some(v=>cpCellText(v).toLowerCase().includes(q));
 }
+function cpCustomerKey(name){return String(name||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,120)||'klant';}
+function cpCustomerNumber(name){const m=String(name||'').match(/(?:^|\s)(\d{3,})(?:\s|[-–:]|$)/);return m?m[1]:'';}
+function cpCustomerIndex(){return Array.isArray(counterpointMeta?.customers)?counterpointMeta.customers:[];}
+function cpRenderTable(rows,label=''){
+  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
+  const maxCols=Math.max(...rows.map(r=>r.length),1);
+  let html='<div style="margin:8px 0;font-weight:800">'+safe(label||(`${rows.length} regels`))+'</div>';
+  html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:13px">';
+  rows.forEach((row,ri)=>{html+='<tr>';for(let c=0;c<maxCols;c++){const val=cpCellText(row[c]);const tag=ri<5&&currentRole!=='sales'?'th':'td';html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'background:#f3f4f6;font-weight:800;':''}">${safe(val)}</${tag}>`;}html+='</tr>';});
+  html+='</table></div>';$('cpHistoryResults').innerHTML=html;
+}
 function renderCounterpointHistory(){
   if(!$('cpHistoryResults'))return;
   if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
-  if(!counterpointLoaded){$('cpHistoryResults').innerHTML='<div class="muted">Open Klant Historie om de gegevens te laden.</div>';return;}
   const q=String($('cpHistorySearch')?.value||'').trim().toLowerCase();
+  if(currentRole==='sales'){
+    const customers=cpCustomerIndex();
+    if(!customers.length){$('cpHistoryResults').innerHTML='<div class="muted">Klantindex nog niet beschikbaar. De beheerder moet het nieuwste CounterPoint Excel-bestand één keer opnieuw importeren.</div>';return;}
+    if(q.length<2){$('cpHistoryResults').innerHTML='<div class="muted">Typ minimaal 2 letters van de klantnaam of het klantnummer. De grote Excel-lijst wordt niet geladen.</div>';return;}
+    const hits=customers.filter(c=>`${c.name||''} ${c.number||''}`.toLowerCase().includes(q)).slice(0,25);
+    if(!hits.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen klant gevonden.</div>';return;}
+    $('cpHistoryResults').innerHTML='<div style="font-weight:800;margin:8px 0">Kies klant:</div>'+hits.map(c=>`<button type="button" class="btn light cp-customer-pick" data-key="${safe(c.key)}" style="display:block;width:100%;text-align:left;margin:6px 0">${safe(c.name)}${c.number?` · ${safe(c.number)}`:''}</button>`).join('');
+    $('cpHistoryResults').querySelectorAll('.cp-customer-pick').forEach(b=>b.onclick=()=>loadCounterpointCustomer(b.dataset.key));
+    return;
+  }
+  if(!counterpointLoaded){$('cpHistoryResults').innerHTML='<div class="muted">Open Klant Historie om de gegevens te laden.</div>';return;}
   const allRows=cpWorkbookRows();
   if(!allRows.length){$('cpHistoryResults').innerHTML='<div class="muted">Nog geen CounterPoint Excel-bestand geïmporteerd.</div>';return;}
   const rows=q?allRows.filter(r=>cpMatches(r,q)):allRows;
-  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
-  const maxCols=Math.max(...rows.map(r=>r.length),1);
-  const shown=rows; // volledige Excel-lijst tonen
-  let html='<div style="margin:8px 0;font-weight:800">'+safe(rows.length)+' regels'+(q?' gevonden':'')+'</div>';
-  html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:13px">';
-  shown.forEach((row,ri)=>{
-    html+='<tr>';
-    for(let c=0;c<maxCols;c++){
-      const val=cpCellText(row[c]);
-      const tag=ri<5&&!q?'th':'td';
-      html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'background:#f3f4f6;font-weight:800;':''}">${safe(val)}</${tag}>`;
-    }
-    html+='</tr>';
-  });
-  html+='</table></div>';
-  $('cpHistoryResults').innerHTML=html;
+  cpRenderTable(rows,q?`${rows.length} regels gevonden`:`${rows.length} regels`);
 }
-
+async function loadCounterpointCustomer(key){
+  if(!key)return;
+  $('cpHistoryResults').innerHTML='<div class="muted">Klantgeschiedenis wordt geladen...</div>';
+  try{
+    const snap=await getDocs(query(collection(db,'counterpointHistory'),where('kind','==','customerChunk'),where('customerKey','==',key)));
+    const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0));
+    const rows=docs.flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
+    const customer=cpCustomerIndex().find(c=>c.key===key);
+    cpRenderTable(rows,customer?.name||'Klant Historie');
+  }catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klantgeschiedenis laden mislukt: '+safe(e?.message||e)+'</div>';}
+}
 async function loadCounterpointHistoryOnce(force=false){
   if(counterpointLoading)return;
+  if(currentRole==='sales'){
+    counterpointLoading=true;
+    try{const metaSnap=await getDoc(doc(db,'counterpointMeta','main'));counterpointMeta=metaSnap.exists()?metaSnap.data():null;counterpointLoaded=false;renderCounterpointHistory();}
+    catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klant Historie laden mislukt: '+safe(e?.message||e)+'</div>';}
+    finally{counterpointLoading=false;}return;
+  }
   if(counterpointLoaded&&!force){renderCounterpointHistory();return;}
-  counterpointLoading=true;
-  if($('cpHistoryResults'))$('cpHistoryResults').innerHTML='<div class="muted">Klant Historie wordt geladen...</div>';
-  try{
-    const [histSnap,metaSnap]=await Promise.all([
-      getDocs(collection(db,'counterpointHistory')),
-      getDoc(doc(db,'counterpointMeta','main'))
-    ]);
-    counterpointHistory=histSnap.docs.map(d=>({id:d.id,...d.data()}));
-    counterpointMeta=metaSnap.exists()?metaSnap.data():null;
-    counterpointLoaded=true;
-    renderCounterpointHistory();
-  }catch(e){
-    counterpointLoaded=false;
-    if($('cpHistoryResults'))$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klant Historie laden mislukt: '+safe(e?.message||e)+'</div>';
-  }finally{counterpointLoading=false;}
+  counterpointLoading=true;if($('cpHistoryResults'))$('cpHistoryResults').innerHTML='<div class="muted">Klant Historie wordt geladen...</div>';
+  try{const [histSnap,metaSnap]=await Promise.all([getDocs(collection(db,'counterpointHistory')),getDoc(doc(db,'counterpointMeta','main'))]);counterpointHistory=histSnap.docs.map(d=>({id:d.id,...d.data()}));counterpointMeta=metaSnap.exists()?metaSnap.data():null;counterpointLoaded=true;renderCounterpointHistory();}
+  catch(e){counterpointLoaded=false;if($('cpHistoryResults'))$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klant Historie laden mislukt: '+safe(e?.message||e)+'</div>';}
+  finally{counterpointLoading=false;}
 }
 
 function parseCounterpointWorkbookRaw(wb){
@@ -4294,16 +4305,23 @@ function parseCounterpointWorkbookRaw(wb){
 }
 async function replaceCounterpointWorkbook(rows,fileName){
   const old=await getDocs(collection(db,'counterpointHistory'));
-  let ops=[];
-  const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
-  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();} await flush();
+  let ops=[];const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
+  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();}await flush();
   const CHUNK=50;
-  for(let i=0;i<rows.length;i+=CHUNK){
-    ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});
-    if(ops.length>=10)await flush();
+  for(let i=0;i<rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}await flush();
+  // Maak daarnaast een lichte klantindex + aparte klantblokken voor de tablet.
+  const groups=[];let current=null;
+  for(const row of rows){
+    const name=String(row?.[1]||'').trim();
+    const isHeaderName=name && !/^(cust name|verkopen|eindtotaal)$/i.test(name) && name!=='(Meerdere items)';
+    if(isHeaderName){current={name,number:cpCustomerNumber(name),key:cpCustomerKey(name),rows:[]};groups.push(current);}
+    if(current && row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
   }
-  await flush();
-  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbook'},{merge:true});
+  const unique=[];const seen=new Set();
+  for(const g of groups){if(seen.has(g.key))continue;seen.add(g.key);unique.push(g);}
+  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}}await flush();
+  const customers=unique.map(g=>({key:g.key,name:g.name,number:g.number}));
+  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndex',customers},{merge:true});
 }
 async function importCounterpointExcel(){
   if(currentRole!=='owner')return;
