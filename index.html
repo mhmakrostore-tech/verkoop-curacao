@@ -4243,6 +4243,40 @@ function cpCustomerKey(name){return String(name||'').trim().toLowerCase().replac
 function cpCustomerNumber(name){const m=String(name||'').match(/(?:^|\s)(\d{3,})(?:\s|[-–:]|$)/);return m?m[1]:'';}
 function cpDisplayCustomerName(name){return String(name||'').replace(/^\s*\*+\s*/, '').trim();}
 function cpCustomerIndex(){return Array.isArray(counterpointMeta?.customers)?counterpointMeta.customers:[];}
+function cpSalesVisibleColumns(headerRows, rows){
+  const maxCols=Math.max(1,...headerRows.map(r=>r.length),...rows.map(r=>r.length));
+  const yearRow=headerRows.find(r=>r.some(v=>/^year$/i.test(String(v||'').trim())))||[];
+  const monthRow=headerRows.find(r=>r.some(v=>/^month number$/i.test(String(v||'').trim())))||[];
+  const currentYear=new Date().getFullYear(), currentMonth=new Date().getMonth()+1;
+  let activeYear=null; const keep=[];
+  for(let c=0;c<maxCols;c++){
+    const y=Number(String(yearRow[c]||'').trim()); if(y>=2000&&y<=2100)activeYear=y;
+    const m=Number(String(monthRow[c]||'').trim());
+    if(c<3){keep.push(c);continue;}
+    if(activeYear===currentYear && m>=1 && m<=currentMonth)keep.push(c);
+    else if(activeYear===currentYear-1 && currentMonth<=6 && m>=7 && m<=12)keep.push(c);
+  }
+  return keep.length>3?keep:Array.from({length:maxCols},(_,i)=>i);
+}
+function cpRenderSalesCustomer(rows,label=''){
+  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
+  const headers=Array.isArray(counterpointMeta?.headerRows)?counterpointMeta.headerRows:[];
+  const cols=cpSalesVisibleColumns(headers,rows);
+  const monthNames=['','JAN','FEB','MRT','APR','MEI','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
+  const yearRow=headers.find(r=>r.some(v=>/^year$/i.test(String(v||'').trim())))||[];
+  const monthRow=headers.find(r=>r.some(v=>/^month number$/i.test(String(v||'').trim())))||[];
+  let activeYear=null; const labels=[];
+  for(let c=0;c<Math.max(yearRow.length,monthRow.length);c++){
+    const y=Number(String(yearRow[c]||'').trim()); if(y>=2000&&y<=2100)activeYear=y;
+    const m=Number(String(monthRow[c]||'').trim()); labels[c]=m>=1&&m<=12?`${monthNames[m]} ${activeYear||''}`.trim():'';
+  }
+  let html=`<div style="margin:8px 0;font-weight:800">${safe(label)}</div>`;
+  html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:13px"><thead><tr>';
+  cols.forEach((c,i)=>{let h=labels[c]||(i===0?'Klant':i===1?'Code':i===2?'Product':'');html+=`<th style="position:sticky;top:0;z-index:3;background:#f3f4f6;border:1px solid #d1d5db;padding:7px 8px;white-space:nowrap">${safe(h)}</th>`;});
+  html+='</tr></thead><tbody>';
+  rows.forEach(row=>{html+='<tr>';cols.forEach(c=>html+=`<td style="border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap">${safe(cpCellText(row[c]))}</td>`);html+='</tr>';});
+  html+='</tbody></table></div>';$('cpHistoryResults').innerHTML=html;
+}
 function cpRenderTable(rows,label=''){
   if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
   const maxCols=Math.max(...rows.map(r=>r.length),1);
@@ -4251,38 +4285,6 @@ function cpRenderTable(rows,label=''){
   rows.forEach((row,ri)=>{html+='<tr>';for(let c=0;c<maxCols;c++){const val=cpCellText(row[c]);const tag=ri<5&&currentRole!=='sales'?'th':'td';html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'background:#f3f4f6;font-weight:800;':''}">${safe(val)}</${tag}>`;}html+='</tr>';});
   html+='</table></div>';$('cpHistoryResults').innerHTML=html;
 }
-function cpRenderCustomerMonthlyTable(rows,label='',headerOverride=null){
-  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen verkoopgegevens gevonden voor deze klant.</div>';return;}
-  const hdr=Array.isArray(headerOverride)&&headerOverride.length?headerOverride:(Array.isArray(counterpointMeta?.monthlyHeaders)?counterpointMeta.monthlyHeaders:[]);
-  if(!hdr.length){cpRenderTable(rows,label);return;}
-  const itemCol=Number.isInteger(counterpointMeta?.itemCol)?counterpointMeta.itemCol:2;
-  const descrCol=Number.isInteger(counterpointMeta?.descrCol)?counterpointMeta.descrCol:3;
-  const currentYear=String(new Date().getFullYear());
-  const years=[...new Set(hdr.map(h=>String(h.year||'')).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
-  let html='<div style="margin:8px 0 12px;font-weight:800;font-size:17px">'+safe(label)+'</div>';
-  for(const year of years){
-    const yh=hdr.filter(h=>String(h.year||'')===year);
-    const isOpen=year===currentYear;
-    html+=`<details class="cp-year-block" ${isOpen?'open':''} style="margin:10px 0;border:1px solid #d1d5db;border-radius:10px;background:#fff;overflow:hidden">`;
-    html+=`<summary style="cursor:pointer;padding:10px 12px;font-size:18px;font-weight:900;background:#fde047;position:sticky;top:0;z-index:6">${safe(year)}${isOpen?' — HUIDIG JAAR':''}</summary>`;
-    html+='<div class="cp-year-scroll" style="overflow:auto;max-height:60vh">';
-    html+='<table style="border-collapse:separate;border-spacing:0;min-width:max-content;width:100%;font-size:13px">';
-    html+='<thead><tr>';
-    html+='<th style="position:sticky;top:0;left:0;background:#f3f4f6;border:1px solid #d1d5db;padding:7px 8px;z-index:5">Code</th>';
-    html+='<th style="position:sticky;top:0;background:#f3f4f6;border:1px solid #d1d5db;padding:7px 8px;z-index:4">Product</th>';
-    for(const h of yh)html+=`<th style="position:sticky;top:0;background:#fef08a;border:1px solid #d1d5db;padding:7px 10px;text-align:center;z-index:4">${safe(h.month)}</th>`;
-    html+='</tr></thead><tbody>';
-    for(const row of rows){
-      const code=cpCellText(row[itemCol]),descr=cpCellText(row[descrCol]);if(!code&&!descr)continue;
-      html+=`<tr><td style="position:sticky;left:0;background:white;border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap;z-index:2">${safe(code)}</td><td style="border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap">${safe(descr)}</td>`;
-      for(const h of yh){const v=cpCellText(row[h.col]);html+=`<td style="border:1px solid #e5e7eb;padding:5px 8px;text-align:center;white-space:nowrap">${safe(v)}</td>`;}
-      html+='</tr>';
-    }
-    html+='</tbody></table></div></details>';
-  }
-  $('cpHistoryResults').innerHTML=html;
-}
-
 function renderCounterpointHistory(){
   if(!$('cpHistoryResults'))return;
   if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
@@ -4311,8 +4313,7 @@ async function loadCounterpointCustomer(key){
     const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0));
     const rows=docs.flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
     const customer=cpCustomerIndex().find(c=>c.key===key);
-    const chunkHeaders=docs.find(d=>Array.isArray(d.monthlyHeaders)&&d.monthlyHeaders.length)?.monthlyHeaders||null;
-    cpRenderCustomerMonthlyTable(rows,cpDisplayCustomerName(customer?.name)||'Klant Historie',chunkHeaders);
+    cpRenderSalesCustomer(rows,cpDisplayCustomerName(customer?.name)||'Klant Historie');
   }catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klantgeschiedenis laden mislukt: '+safe(e?.message||e)+'</div>';}
 }
 async function loadCounterpointHistoryOnce(force=false){
@@ -4341,8 +4342,8 @@ async function replaceCounterpointWorkbook(rows,fileName){
   const old=await getDocs(collection(db,'counterpointHistory'));
   let ops=[];const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
   for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();}await flush();
-  const CHUNK=50;
-  for(let i=0;i<rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}await flush();
+  const CHUNK=10;
+  for(let i=0;i<rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=1)await flush();}await flush();
   // Maak daarnaast een lichte klantindex + aparte klantblokken voor de tablet.
   // Zoek eerst de echte kolommen op naam. CounterPoint kan extra kopregels boven de tabel hebben.
   let custCol=-1,itemCol=-1,descrCol=-1;
@@ -4370,18 +4371,9 @@ async function replaceCounterpointWorkbook(rows,fileName){
     if(current && row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
   }
   const unique=[...byKey.values()];
-  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}}await flush();
+  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=1)await flush();}}await flush();
   const customers=unique.map(g=>({key:g.key,name:g.name,number:g.number})).sort((a,b)=>a.name.localeCompare(b.name));
-  // Bewaar ook de jaar/maand-kolommen uit de originele CounterPoint Excel voor de tablet.
-  const monthNames=['JAN','FEB','MRT','APR','MEI','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
-  let yearRow=-1,monthRow=-1;
-  for(let r=0;r<Math.min(rows.length,30);r++){
-    const vals=rows[r].map(v=>String(v??'').trim().toLowerCase());
-    if(vals.includes('cust name')&&vals.includes('item id')&&vals.includes('descr')){monthRow=r;yearRow=Math.max(0,r-1);break;}
-  }
-  const monthlyHeaders=[];
-  if(monthRow>=0){let activeYear='';for(let c=descrCol+1;c<(rows[monthRow]||[]).length;c++){const yr=String(rows[yearRow]?.[c]??'').trim();if(/^20\d{2}$/.test(yr))activeYear=yr;const m=Number(String(rows[monthRow]?.[c]??'').trim());if(activeYear&&m>=1&&m<=12)monthlyHeaders.push({col:c,year:activeYear,month:monthNames[m-1]});}}
-  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndexMonthly',customers,monthlyHeaders,itemCol,descrCol},{merge:true});
+  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndex',customers,headerRows:rows.slice(0,8)},{merge:true});
 }
 async function importCounterpointExcel(){
   if(currentRole!=='owner')return;
