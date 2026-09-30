@@ -4251,9 +4251,9 @@ function cpRenderTable(rows,label=''){
   rows.forEach((row,ri)=>{html+='<tr>';for(let c=0;c<maxCols;c++){const val=cpCellText(row[c]);const tag=ri<5&&currentRole!=='sales'?'th':'td';html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'background:#f3f4f6;font-weight:800;':''}">${safe(val)}</${tag}>`;}html+='</tr>';});
   html+='</table></div>';$('cpHistoryResults').innerHTML=html;
 }
-function cpRenderCustomerMonthlyTable(rows,label=''){
+function cpRenderCustomerMonthlyTable(rows,label='',headerOverride=null){
   if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen verkoopgegevens gevonden voor deze klant.</div>';return;}
-  const hdr=Array.isArray(counterpointMeta?.monthlyHeaders)?counterpointMeta.monthlyHeaders:[];
+  const hdr=Array.isArray(headerOverride)&&headerOverride.length?headerOverride:(Array.isArray(counterpointMeta?.monthlyHeaders)?counterpointMeta.monthlyHeaders:[]);
   if(!hdr.length){cpRenderTable(rows,label);return;}
   const itemCol=Number.isInteger(counterpointMeta?.itemCol)?counterpointMeta.itemCol:2;
   const descrCol=Number.isInteger(counterpointMeta?.descrCol)?counterpointMeta.descrCol:3;
@@ -4311,7 +4311,8 @@ async function loadCounterpointCustomer(key){
     const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0));
     const rows=docs.flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
     const customer=cpCustomerIndex().find(c=>c.key===key);
-    cpRenderCustomerMonthlyTable(rows,cpDisplayCustomerName(customer?.name)||'Klant Historie');
+    const chunkHeaders=docs.find(d=>Array.isArray(d.monthlyHeaders)&&d.monthlyHeaders.length)?.monthlyHeaders||null;
+    cpRenderCustomerMonthlyTable(rows,cpDisplayCustomerName(customer?.name)||'Klant Historie',chunkHeaders);
   }catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klantgeschiedenis laden mislukt: '+safe(e?.message||e)+'</div>';}
 }
 async function loadCounterpointHistoryOnce(force=false){

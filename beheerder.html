@@ -4353,14 +4353,24 @@ async function replaceCounterpointWorkbook(rows,fileName){
     if(current && row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
   }
   const unique=[...byKey.values()];
-  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}}await flush();
-  const customers=unique.map(g=>({key:g.key,name:g.name,number:g.number})).sort((a,b)=>a.name.localeCompare(b.name));
-  // Bewaar ook de jaar/maand-kolommen uit de originele CounterPoint Excel voor de tablet.
+  // Lees de jaar/maand-kolommen uit de originele CounterPoint kopregels.
   const monthNames=['JAN','FEB','MRT','APR','MEI','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
   let yearRow=-1,monthRow=-1;
-  for(let r=0;r<Math.min(rows.length,30);r++){const vals=rows[r].map(v=>String(v??'').trim().toLowerCase());if(vals.includes('cust name')&&vals.includes('item id')&&vals.includes('descr')){monthRow=r;yearRow=Math.max(0,r-1);break;}}
+  for(let r=0;r<Math.min(rows.length,30);r++){
+    const vals=rows[r].map(v=>String(v??'').trim().toLowerCase());
+    if(vals.includes('cust name')&&vals.includes('item id')&&vals.includes('descr')){
+      monthRow=r;
+      // CounterPoint zet de jaartallen normaal op de regel direct erboven.
+      // Zoek voor de zekerheid maximaal 4 regels terug naar een regel met 20xx.
+      for(let rr=r-1;rr>=Math.max(0,r-4);rr--){if((rows[rr]||[]).some(v=>/^20\d{2}$/.test(String(v??'').trim()))){yearRow=rr;break;}}
+      break;
+    }
+  }
   const monthlyHeaders=[];
-  if(monthRow>=0){let activeYear='';for(let c=descrCol+1;c<(rows[monthRow]||[]).length;c++){const yr=String(rows[yearRow]?.[c]??'').trim();if(/^20\d{2}$/.test(yr))activeYear=yr;const m=Number(String(rows[monthRow]?.[c]??'').trim());if(activeYear&&m>=1&&m<=12)monthlyHeaders.push({col:c,year:activeYear,month:monthNames[m-1]});}}
+  if(monthRow>=0&&yearRow>=0){let activeYear='';for(let c=descrCol+1;c<(rows[monthRow]||[]).length;c++){const yr=String(rows[yearRow]?.[c]??'').trim();if(/^20\d{2}$/.test(yr))activeYear=yr;const m=Number(String(rows[monthRow]?.[c]??'').trim());if(activeYear&&m>=1&&m<=12)monthlyHeaders.push({col:c,year:activeYear,month:monthNames[m-1]});}}
+  // Zet de maandkoppen óók in elk klantblok. Daardoor kan de tablet ze altijd tonen.
+  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),monthlyHeaders,itemCol,descrCol,rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=10)await flush();}}await flush();
+  const customers=unique.map(g=>({key:g.key,name:g.name,number:g.number})).sort((a,b)=>a.name.localeCompare(b.name));
   await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndexMonthly',customers,monthlyHeaders,itemCol,descrCol},{merge:true});
 }
 async function importCounterpointExcel(){
