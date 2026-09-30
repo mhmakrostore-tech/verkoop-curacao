@@ -640,13 +640,13 @@ window.addEventListener('unhandledrejection',function(e){
     <h2>Klant Historie (CounterPoint)</h2>
     <div id="cpAdminUpload" class="panel" style="margin:10px 0">
       <h3>Historie bijwerken</h3>
-      <p>Kies het nieuwste Excel-bestand uit CounterPoint. De oude geïmporteerde historie wordt vervangen.</p>
+      <p>Kies het nieuwste Excel-bestand uit CounterPoint. De volledige Excel-lijst wordt opgeslagen en hieronder als tabel getoond. De vorige lijst wordt vervangen.</p>
       <input id="cpExcelFile" type="file" accept=".xlsx,.xls">
       <button id="cpImportBtn" type="button" class="btn primary" style="margin-top:10px">HISTORIE BIJWERKEN</button>
       <div id="cpImportMsg" class="message"></div>
     </div>
     <div style="font-weight:800;margin:10px 0">Laatst bijgewerkt: <span id="cpLastUpdated">Nog niet bijgewerkt</span></div>
-    <input id="cpHistorySearch" placeholder="Zoek bedrijf, product of artikelcode" autocomplete="off">
+    <input id="cpHistorySearch" placeholder="Zoek in de volledige Excel-lijst" autocomplete="off">
     <div id="cpHistoryResults" style="margin-top:12px"></div>
   </div>
 </section>
@@ -4222,66 +4222,75 @@ if($('saveGiveawayBtn'))$('saveGiveawayBtn').onclick=addGiveawayEntry;
 if($('printGiveawayBtn'))$('printGiveawayBtn').onclick=printGiveawayReport;
 
 
-function cpCleanCustomer(v){return String(v||'').replace(/^\*\s*/,'').trim();}
 function cpDateLabel(v){
   if(!v)return 'Nog niet bijgewerkt';
   const d=v?.toDate?.()||new Date(v);
   return Number.isNaN(d.getTime())?'Nog niet bijgewerkt':d.toLocaleString('nl-NL');
 }
+function cpCellText(v){
+  if(v===null||v===undefined)return '';
+  if(typeof v==='object'&&v instanceof Date)return v.toLocaleDateString('nl-NL');
+  return String(v);
+}
+function cpWorkbookRows(){
+  return counterpointHistory.filter(x=>x.kind==='workbookChunk').sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0)).flatMap(x=>Array.isArray(x.rows)?x.rows:[]);
+}
+function cpMatches(row,q){
+  if(!q)return true;
+  return row.some(v=>cpCellText(v).toLowerCase().includes(q));
+}
 function renderCounterpointHistory(){
   if(!$('cpHistoryResults'))return;
   if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
   const q=String($('cpHistorySearch')?.value||'').trim().toLowerCase();
-  const rows=counterpointHistory.filter(r=>!q||[r.customer,r.itemId,r.description].some(v=>String(v||'').toLowerCase().includes(q)));
-  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen historie gevonden.</div>';return;}
-  const groups={}; rows.forEach(r=>(groups[r.customer]||(groups[r.customer]=[])).push(r));
-  $('cpHistoryResults').innerHTML=Object.keys(groups).sort((a,b)=>a.localeCompare(b)).map(customer=>{
-    const items=groups[customer].sort((a,b)=>String(a.description||'').localeCompare(String(b.description||'')));
-    return `<details style="margin:8px 0;border:1px solid #ddd;border-radius:10px;padding:10px" ${q?'open':''}><summary style="font-weight:900;cursor:pointer">${safe(customer)} · ${items.length} producten</summary>`+
-      items.map(r=>{
-        const periods=(r.periods||[]).filter(x=>Number(x.qty)!==0).map(x=>`${String(x.month).padStart(2,'0')}-${x.year}: <b>${safe(x.qty)}</b>`).join(' &nbsp; ');
-        return `<div style="padding:9px 2px;border-top:1px solid #eee"><b>${safe(r.description)}</b> <span class="muted">(${safe(r.itemId)})</span><div style="margin-top:4px">${periods||'Geen aantallen'}</div></div>`;
-      }).join('')+'</details>';
-  }).join('');
+  const allRows=cpWorkbookRows();
+  if(!allRows.length){$('cpHistoryResults').innerHTML='<div class="muted">Nog geen CounterPoint Excel-bestand geïmporteerd.</div>';return;}
+  const rows=q?allRows.filter(r=>cpMatches(r,q)):allRows;
+  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
+  const maxCols=Math.max(...rows.map(r=>r.length),1);
+  const shown=rows; // volledige Excel-lijst tonen
+  let html='<div style="margin:8px 0;font-weight:800">'+safe(rows.length)+' regels'+(q?' gevonden':'')+'</div>';
+  html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:13px">';
+  shown.forEach((row,ri)=>{
+    html+='<tr>';
+    for(let c=0;c<maxCols;c++){
+      const val=cpCellText(row[c]);
+      const tag=ri<5&&!q?'th':'td';
+      html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'background:#f3f4f6;font-weight:800;':''}">${safe(val)}</${tag}>`;
+    }
+    html+='</tr>';
+  });
+  html+='</table></div>';
+  $('cpHistoryResults').innerHTML=html;
 }
-function parseCounterpointWorkbook(wb){
-  const ws=wb.Sheets[wb.SheetNames[0]], data=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-  if(data.length<6)throw new Error('Excel-formaat niet herkend.');
-  const yearRow=data[3]||[], monthRow=data[4]||[];
-  const periodsByCol={}; let activeYear=null;
-  for(let c=4;c<Math.max(yearRow.length,monthRow.length);c++){
-    if(Number.isInteger(Number(yearRow[c])) && Number(yearRow[c])>=2000 && Number(yearRow[c])<=2100)activeYear=Number(yearRow[c]);
-    const m=Number(monthRow[c]); if(activeYear && m>=1 && m<=12)periodsByCol[c]={year:activeYear,month:m};
-  }
-  let customer=''; const out=[];
-  for(let r=5;r<data.length;r++){
-    const row=data[r]||[]; const cval=String(row[1]??'').trim();
-    if(cval && cval.toLowerCase()!=='eindtotaal')customer=cpCleanCustomer(cval);
-    const itemId=String(row[2]??'').trim(), description=String(row[3]??'').trim();
-    if(!customer||!itemId||!description)continue;
-    const periods=[];
-    Object.entries(periodsByCol).forEach(([ci,p])=>{const v=row[Number(ci)]; if(v!==null&&v!==''&&Number(v)!==0)periods.push({...p,qty:Number(v)});});
-    out.push({customer,itemId,description,periods});
-  }
-  if(!out.length)throw new Error('Geen verkoopregels gevonden in dit Excel-bestand.');
-  return out;
+function parseCounterpointWorkbookRaw(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  if(!ws)throw new Error('Excel-formaat niet herkend.');
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false,dateNF:'dd-mm-yyyy'});
+  if(!rows.length)throw new Error('Geen gegevens gevonden in dit Excel-bestand.');
+  return rows.map(r=>r.map(v=>v===null||v===undefined?'':String(v)));
 }
-async function replaceCounterpointHistory(rows,fileName){
+async function replaceCounterpointWorkbook(rows,fileName){
   const old=await getDocs(collection(db,'counterpointHistory'));
   let ops=[];
   const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
-  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=400)await flush();} await flush();
-  for(const row of rows){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:row});if(ops.length>=400)await flush();} await flush();
-  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||''},{merge:true});
+  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();} await flush();
+  const CHUNK=100;
+  for(let i=0;i<rows.length;i+=CHUNK){
+    ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:rows.slice(i,i+CHUNK)}});
+    if(ops.length>=300)await flush();
+  }
+  await flush();
+  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbook'},{merge:true});
 }
 async function importCounterpointExcel(){
   if(currentRole!=='owner')return;
   const file=$('cpExcelFile')?.files?.[0]; if(!file){msg($('cpImportMsg'),'Kies eerst het CounterPoint Excel-bestand.',true);return;}
   try{
-    msg($('cpImportMsg'),'Excel wordt gelezen en bijgewerkt...');
-    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}), rows=parseCounterpointWorkbook(wb);
-    await replaceCounterpointHistory(rows,file.name);
-    msg($('cpImportMsg'),`Klaar. ${rows.length} verkoopregels geïmporteerd.`);
+    msg($('cpImportMsg'),'Excel wordt gelezen en bijgewerkt... laat deze pagina open.');
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}), rows=parseCounterpointWorkbookRaw(wb);
+    await replaceCounterpointWorkbook(rows,file.name);
+    msg($('cpImportMsg'),`Klaar. De volledige Excel-lijst met ${rows.length} regels is opgeslagen.`);
     $('cpExcelFile').value='';
   }catch(e){msg($('cpImportMsg'),'Import mislukt: '+e.message,true);}
 }
