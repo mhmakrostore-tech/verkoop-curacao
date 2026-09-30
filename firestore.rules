@@ -35,6 +35,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /counterpointHistory/{historyId} {
+      allow read: if isAdmin() || isSales();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /counterpointMeta/{docId} {
+      allow read: if isAdmin() || isSales();
+      allow create, update, delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if isAdmin();
     }

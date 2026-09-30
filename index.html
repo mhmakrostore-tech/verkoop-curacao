@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#facc15">
+<meta name="theme-color" content="#eab308">
 <title>Verkoop Curaçao</title>
 <style>
-:root{--brand:#facc15;--dark:#ca8a04;--bg:#f4f6fa;--surface:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--good:#15803d;--warning:#c77800;--danger:#b91c1c;--shadow:0 12px 34px rgba(31,41,55,.10)}
+:root{--brand:#eab308;--dark:#854d0e;--bg:#f4f6fa;--surface:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--good:#15803d;--warning:#c77800;--danger:#b91c1c;--shadow:0 12px 34px rgba(31,41,55,.10)}
 *{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}.hidden{display:none!important}
 .loading,.login{min-height:100vh;display:grid;place-items:center;padding:20px}.login-card,.panel{background:#fff;border-radius:22px;box-shadow:var(--shadow);padding:28px}
 .login-card{width:min(450px,100%);text-align:center;border-top:7px solid var(--brand)}
@@ -76,7 +76,7 @@ window.addEventListener('unhandledrejection',function(e){
 <section id="login" class="login hidden"><div class="login-card"><h1>Verkoop Curaçao</h1><p>Log in met het toegewezen account.</p><label>E-mailadres</label><input id="loginEmail" type="email" autocomplete="username" placeholder="naam@curacao.com"><label>Wachtwoord</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Wachtwoord"><button id="loginBtn" class="btn primary" type="button" style="margin-top:14px;width:100%">Inloggen</button><div id="loginMsg" class="message"></div></div></section>
 <div id="app" class="hidden">
 <header class="top"><div><h1>Verkoop Curaçao</h1><small id="email"></small></div><button id="logoutBtn" class="btn ghost">Uitloggen</button></header>
-<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
+<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
 <main>
 <section id="catalog" class="tab active">
 
@@ -94,9 +94,9 @@ window.addEventListener('unhandledrejection',function(e){
   </div>
   <label>Bestelling plaatsen als</label>
   <div class="order-type-options">
-  <label><input type="checkbox" name="catalogOrderType" value="MQS"> MQS</label>
-<label><input type="checkbox" name="catalogOrderType" value="TOPPERS"> TOPPERS</label>
-<label><input type="checkbox" name="catalogOrderType" value="DIVERSEN"> DIVERSEN</label>
+    <label><input type="radio" name="catalogOrderType" value="MQS" checked> MQS</label>
+    <label><input type="radio" name="catalogOrderType" value="TOPPERS"> TOPPERS</label>
+    <label><input type="radio" name="catalogOrderType" value="DIVERSEN"> DIVERSEN</label>
     <label><input id="catalogCreditOption" type="checkbox" value="CREDIT"> CREDIT</label>
   </div>
   <div id="catalogCartSummary" class="cart-summary">
@@ -104,7 +104,7 @@ window.addEventListener('unhandledrejection',function(e){
     <span>Totaal: CG <strong id="catalogCartTotal">0.00</strong></span>
   </div>
   <div class="button-row no-print">
-   <button id="saveCatalogOrderBtn" class="btn primary" type="button">Send Order</button>
+    <button id="saveCatalogOrderBtn" class="btn primary" type="button">Bestelling opslaan</button>
     <button id="whatsappCatalogOrderBtn" class="btn secondary" type="button">Via WhatsApp</button>
     <button id="printCatalogOrderBtn" class="btn secondary" type="button">Print / PDF</button>
     <button id="clearCatalogOrderBtn" class="btn light" type="button">Winkelmand leegmaken</button>
@@ -382,9 +382,9 @@ window.addEventListener('unhandledrejection',function(e){
     </div>
     <label>Bestelling plaatsen als</label>
     <div class="order-type-options">
-      <label><input type="checkbox" name="orderType" value="MQS"> MQS</label>
-<label><input type="checkbox" name="orderType" value="TOPPERS"> TOPPERS</label>
-<label><input type="checkbox" name="orderType" value="DIVERSEN"> DIVERSEN</label>
+      <label><input type="radio" name="orderType" value="E.C" checked> E.C</label>
+      <label><input type="radio" name="orderType" value="D.A"> D.A</label>
+      <label><input type="radio" name="orderType" value="D.A COOL"> D.A COOL</label>
       <label><input id="saleCreditOption" type="checkbox" value="CREDIT"> CREDIT</label>
     </div>
     <div id="saleItems" class="sale-items"></div>
@@ -634,25 +634,36 @@ window.addEventListener('unhandledrejection',function(e){
   </div>
 </section>
 
+
+<section id="cpHistory" class="tab">
+  <div class="panel">
+    <h2>Klant Historie (CounterPoint)</h2>
+    <div id="cpAdminUpload" class="panel" style="margin:10px 0">
+      <h3>Historie bijwerken</h3>
+      <p>Kies het nieuwste Excel-bestand uit CounterPoint. De oude geïmporteerde historie wordt vervangen.</p>
+      <input id="cpExcelFile" type="file" accept=".xlsx,.xls">
+      <button id="cpImportBtn" type="button" class="btn primary" style="margin-top:10px">HISTORIE BIJWERKEN</button>
+      <div id="cpImportMsg" class="message"></div>
+    </div>
+    <div style="font-weight:800;margin:10px 0">Laatst bijgewerkt: <span id="cpLastUpdated">Nog niet bijgewerkt</span></div>
+    <input id="cpHistorySearch" placeholder="Zoek bedrijf, product of artikelcode" autocomplete="off">
+    <div id="cpHistoryResults" style="margin-top:12px"></div>
+  </div>
+</section>
+
 </main></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
-import {getAuth,onAuthStateChanged,signOut,signInWithEmailAndPassword,createUserWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
-import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+import {getAuth,onAuthStateChanged,signOut,signInWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction,getDocs,writeBatch} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 
-const firebaseConfig={
-  apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",
-  authDomain:"verkoop-curacao.firebaseapp.com",
-  projectId:"verkoop-curacao",
-  storageBucket:"verkoop-curacao.firebasestorage.app",
-  messagingSenderId:"469707957925",
-  appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"
-};
+const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
-let products=[],sales=[],customers=[],tabletUsers=[],currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
+let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
 
@@ -665,7 +676,7 @@ function getProductCode(p){
   return String(p.productCode||p.code||'').trim();
 }
 function catalogOrderType(){
-  return Array.from(document.querySelectorAll('input[name="catalogOrderType"]:checked')).map(input => input.value).join(', ');
+  return document.querySelector('input[name="catalogOrderType"]:checked')?.value||'MQS';
 }
 function catalogCreditChecked(){
   return !!document.getElementById('catalogCreditOption')?.checked;
@@ -715,8 +726,8 @@ function clearCatalogOrder(){
   editingSaleId='';
   $('catalogCustomerName').value='';
   $('catalogOrderNote').value='';
-  const ec=document.querySelector('input[name="catalogOrderType"][value="E.C"]');
-  if(ec)ec.checked=true;
+  const mqs=document.querySelector('input[name="catalogOrderType"][value="MQS"]');
+  if(mqs)mqs.checked=true;
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=false;
   document.querySelectorAll('.catalog-order-qty').forEach(input=>input.value='');
   document.querySelectorAll('.catalog-order-unit').forEach(select=>select.value='each');
@@ -818,9 +829,9 @@ function editSavedOrder(id){
   editingSaleId=id;
   $('catalogCustomerName').value=sale.customerName||'';
   $('catalogOrderNote').value=sale.note||'';
-  let editBaseType=String(sale.orderType||'E.C');
+  let editBaseType=String(sale.orderType||'MQS');
   let editCredit=!!sale.creditOption;
-  if(editBaseType==='CREDIT' && sale.recordType!=='credit' && sale.isCredit!==true){editBaseType='E.C';editCredit=true;}
+  if(editBaseType==='CREDIT' && sale.recordType!=='credit' && sale.isCredit!==true){editBaseType='MQS';editCredit=true;}
   const orderRadio=document.querySelector(`input[name="catalogOrderType"][value="${editBaseType}"]`);
   if(orderRadio)orderRadio.checked=true;
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=editCredit;
@@ -1951,17 +1962,7 @@ function getSaleItems(){
   }).filter(x=>x.productId&&x.qty>0&&Number.isFinite(x.price));
 }
 function updateSaleTotal(){$('saleTotal').textContent=getSaleItems().reduce((s,x)=>s+x.qty*x.price,0).toFixed(2);}
-function resetSale(){
-  $('saleCustomerName').value='';
-  $('saleNote').value='';
-  document.querySelectorAll('input[name="orderType"]').forEach(input=>{
-    input.checked=false;
-  });
-  const creditOpt=document.getElementById('saleCreditOption');
-  if(creditOpt)creditOpt.checked=false;
-  $('saleItems').innerHTML='';
-  addSaleItem();
-}
+function resetSale(){$('saleCustomerName').value='';$('saleNote').value='';const first=document.querySelector('input[name="orderType"][value="E.C"]');if(first)first.checked=true;const creditOpt=document.getElementById('saleCreditOption');if(creditOpt)creditOpt.checked=false;$('saleItems').innerHTML='';addSaleItem();}
 
 
 const DEFAULT_PACKAGES=[
@@ -2551,11 +2552,10 @@ async function isAllowedTabletEmail(email){
 function applyRoleUI(){
   const isSales=currentRole==='sales';
   document.body.classList.toggle('tablet-mode',isSales);
-  refreshCategorySelects();
 
   document.querySelectorAll('.tabs button').forEach(btn=>{
-    const adminTabs=['catalog','add','customers','pick'];
-    const salesTabs=['catalog','credit'];
+    const adminTabs=['catalog','add','customers','cpHistory','pick'];
+    const salesTabs=['catalog','credit','cpHistory'];
     const keep=(isSales?salesTabs:adminTabs).includes(btn.dataset.tab);
     btn.classList.toggle('hidden',!keep);
   });
@@ -2563,6 +2563,7 @@ function applyRoleUI(){
   if($('tabletAccessPanel'))$('tabletAccessPanel').classList.add('hidden');
   if($('orderPickSetupPanel'))$('orderPickSetupPanel').classList.add('hidden');
   document.querySelectorAll('.product-admin-actions').forEach(el=>el.classList.toggle('hidden',isSales));
+  if($('cpAdminUpload'))$('cpAdminUpload').classList.toggle('hidden',isSales);
 
   document.querySelectorAll('.tab').forEach(tab=>tab.classList.remove('active'));
   $('catalog').classList.add('active');
@@ -3185,7 +3186,7 @@ async function saveSale(){
   const customerName=cleanCustomerName($('saleCustomerName').value),items=getSaleItems();
   if(!customerName)return msg($('saleMessage'),'Vul klantnaam in.',true);
   if(!items.length)return msg($('saleMessage'),'Voeg minstens één product toe.',true);
-  const selectedType=Array.from(document.querySelectorAll('input[name="orderType"]:checked')).map(input=>input.value).join(', ');
+  const selectedType=document.querySelector('input[name="orderType"]:checked')?.value||'MQS';
   const isCredit=false; // CREDIT hier is alleen een type op de gewone verkoopbon
   const total=items.reduce((s,x)=>s+x.qty*x.price,0);
   try{
@@ -3265,7 +3266,7 @@ function renderHistory(){
 
 function buildWhatsAppText(){
   const customerName=$('saleCustomerName').value.trim()||'Klant';
-  const orderType=document.querySelector('input[name="orderType"]:checked')?.value||'E.C';
+  const orderType=document.querySelector('input[name="orderType"]:checked')?.value||'MQS';
   const orderLabel=orderType+(document.getElementById('saleCreditOption')?.checked?' + CREDIT':'');
   const items=getSaleItems();
   if(!items.length){
@@ -3521,7 +3522,7 @@ function saveExtraCategories(list){
 }
 function allCategoryNames(){
   const fromProducts=products.map(p=>normalizeCategoryName(p.category||'OVERIG')).filter(Boolean);
-  const all=[...new Set([...fromProducts.map(normalizeCategoryName),...savedExtraCategories().map(normalizeCategoryName),'MAKRO','MAGAZIJN','MQS','TOPPERS','OVERIG'])];
+  const all=[...new Set([...fromProducts.map(normalizeCategoryName),...savedExtraCategories().map(normalizeCategoryName),'MAKRO','MAGAZIJN','MQS','TOPPERS','DIVERSEN','OVERIG'])];
   return all.sort((a,b)=>{
     if(a==='MAKRO')return -1;
     if(b==='MAKRO')return 1;
@@ -3544,7 +3545,7 @@ function refreshCategorySelects(){
   }
   if($('category')){
     const currentFilter=$('category').value||'all';
-    $('category').innerHTML='<option value="all">Alle categorieën</option>'+names.filter(c=>currentRole!=='sales'||!['MAKRO','MAGAZIJN'].includes(normalizeCategoryName(c))).map(c=>`<option value="${safe(c)}">${safe(c)}</option>`).join('');
+    $('category').innerHTML='<option value="all">Alle categorieën</option>'+names.map(c=>`<option value="${safe(c)}">${safe(c)}</option>`).join('');
     if(currentFilter==='all'||names.includes(currentFilter))$('category').value=currentFilter;
   }
   renderCategoryManager();
@@ -3591,7 +3592,7 @@ async function renameCategory(oldName){
   }catch(e){msg($('categoryManagerMessage'),'Hernoemen mislukt: '+e.message,true);}
 }
 async function deleteCategory(name){
-  if(['MAKRO','MAGAZIJN','MQS','TOPPERS','OVERIG'].includes(normalizeCategoryName(name))){
+  if(['MAKRO','MAGAZIJN','MQS','TOPPERS','DIVERSEN','OVERIG'].includes(normalizeCategoryName(name))){
     return msg($('categoryManagerMessage'),`${name} is een vaste categorie en kan niet worden verwijderd.`,true);
   }
   const affected=products.filter(p=>normalizeCategoryName(p.category)===name);
@@ -3702,7 +3703,7 @@ function render(){
   const q=String(searchEl.value||'').toLowerCase(),selectedCategory=String(categoryEl.value||'all'),a=String(availabilityEl.value||'all');
   const filtered=products.filter(p=>{
     const t=`${p.name||''} ${weightText(p)} ${normalizedCodes(p).each} ${normalizedCodes(p).p12} ${normalizedCodes(p).pack} ${normalizedCodes(p).crt} ${p.barcode||''} ${p.category||''}`.toLowerCase();
-    return p.internalOnly!==true&&(currentRole!=='sales'||!['MAKRO','MAGAZIJN'].includes(normalizeCategoryName(p.category)))&&(!q||t.includes(q))&&(selectedCategory==='all'||(p.category||'OVERIG')===selectedCategory)&&(a==='all'||(a==='available'?p.available!==false:p.available===false));
+    return p.internalOnly!==true&&(!q||t.includes(q))&&(selectedCategory==='all'||(p.category||'OVERIG')===selectedCategory)&&(a==='all'||(a==='available'?p.available!==false:p.available===false));
   });
 
   const groups={};
@@ -4220,9 +4221,76 @@ resetQuoteForm();
 if($('saveGiveawayBtn'))$('saveGiveawayBtn').onclick=addGiveawayEntry;
 if($('printGiveawayBtn'))$('printGiveawayBtn').onclick=printGiveawayReport;
 
+
+function cpCleanCustomer(v){return String(v||'').replace(/^\*\s*/,'').trim();}
+function cpDateLabel(v){
+  if(!v)return 'Nog niet bijgewerkt';
+  const d=v?.toDate?.()||new Date(v);
+  return Number.isNaN(d.getTime())?'Nog niet bijgewerkt':d.toLocaleString('nl-NL');
+}
+function renderCounterpointHistory(){
+  if(!$('cpHistoryResults'))return;
+  if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
+  const q=String($('cpHistorySearch')?.value||'').trim().toLowerCase();
+  const rows=counterpointHistory.filter(r=>!q||[r.customer,r.itemId,r.description].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen historie gevonden.</div>';return;}
+  const groups={}; rows.forEach(r=>(groups[r.customer]||(groups[r.customer]=[])).push(r));
+  $('cpHistoryResults').innerHTML=Object.keys(groups).sort((a,b)=>a.localeCompare(b)).map(customer=>{
+    const items=groups[customer].sort((a,b)=>String(a.description||'').localeCompare(String(b.description||'')));
+    return `<details style="margin:8px 0;border:1px solid #ddd;border-radius:10px;padding:10px" ${q?'open':''}><summary style="font-weight:900;cursor:pointer">${safe(customer)} · ${items.length} producten</summary>`+
+      items.map(r=>{
+        const periods=(r.periods||[]).filter(x=>Number(x.qty)!==0).map(x=>`${String(x.month).padStart(2,'0')}-${x.year}: <b>${safe(x.qty)}</b>`).join(' &nbsp; ');
+        return `<div style="padding:9px 2px;border-top:1px solid #eee"><b>${safe(r.description)}</b> <span class="muted">(${safe(r.itemId)})</span><div style="margin-top:4px">${periods||'Geen aantallen'}</div></div>`;
+      }).join('')+'</details>';
+  }).join('');
+}
+function parseCounterpointWorkbook(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]], data=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  if(data.length<6)throw new Error('Excel-formaat niet herkend.');
+  const yearRow=data[3]||[], monthRow=data[4]||[];
+  const periodsByCol={}; let activeYear=null;
+  for(let c=4;c<Math.max(yearRow.length,monthRow.length);c++){
+    if(Number.isInteger(Number(yearRow[c])) && Number(yearRow[c])>=2000 && Number(yearRow[c])<=2100)activeYear=Number(yearRow[c]);
+    const m=Number(monthRow[c]); if(activeYear && m>=1 && m<=12)periodsByCol[c]={year:activeYear,month:m};
+  }
+  let customer=''; const out=[];
+  for(let r=5;r<data.length;r++){
+    const row=data[r]||[]; const cval=String(row[1]??'').trim();
+    if(cval && cval.toLowerCase()!=='eindtotaal')customer=cpCleanCustomer(cval);
+    const itemId=String(row[2]??'').trim(), description=String(row[3]??'').trim();
+    if(!customer||!itemId||!description)continue;
+    const periods=[];
+    Object.entries(periodsByCol).forEach(([ci,p])=>{const v=row[Number(ci)]; if(v!==null&&v!==''&&Number(v)!==0)periods.push({...p,qty:Number(v)});});
+    out.push({customer,itemId,description,periods});
+  }
+  if(!out.length)throw new Error('Geen verkoopregels gevonden in dit Excel-bestand.');
+  return out;
+}
+async function replaceCounterpointHistory(rows,fileName){
+  const old=await getDocs(collection(db,'counterpointHistory'));
+  let ops=[];
+  const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
+  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=400)await flush();} await flush();
+  for(const row of rows){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:row});if(ops.length>=400)await flush();} await flush();
+  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||''},{merge:true});
+}
+async function importCounterpointExcel(){
+  if(currentRole!=='owner')return;
+  const file=$('cpExcelFile')?.files?.[0]; if(!file){msg($('cpImportMsg'),'Kies eerst het CounterPoint Excel-bestand.',true);return;}
+  try{
+    msg($('cpImportMsg'),'Excel wordt gelezen en bijgewerkt...');
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}), rows=parseCounterpointWorkbook(wb);
+    await replaceCounterpointHistory(rows,file.name);
+    msg($('cpImportMsg'),`Klaar. ${rows.length} verkoopregels geïmporteerd.`);
+    $('cpExcelFile').value='';
+  }catch(e){msg($('cpImportMsg'),'Import mislukt: '+e.message,true);}
+}
+if($('cpImportBtn'))$('cpImportBtn').onclick=importCounterpointExcel;
+if($('cpHistorySearch'))$('cpHistorySearch').oninput=renderCounterpointHistory;
+
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
-  if(currentRole==='sales'&&!['catalog','credit'].includes(b.dataset.tab))return;
-  if(currentRole==='owner'&&!['catalog','add','customers','pick'].includes(b.dataset.tab))return;
+  if(currentRole==='sales'&&!['catalog','credit','cpHistory'].includes(b.dataset.tab))return;
+  if(currentRole==='owner'&&!['catalog','add','customers','cpHistory','pick'].includes(b.dataset.tab))return;
   if(currentRole==='pick'&&b.dataset.tab!=='pick')return;
   if(b.dataset.tab!=='add'){stopScanner();stopMakroScanner();stopWarehouseScanner();stopToppersScanner();}
   if(b.dataset.tab!=='catalog')stopCatalogScanner();
@@ -4679,6 +4747,9 @@ onAuthStateChanged(auth,async u=>{
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('email').textContent=email+(currentRole==='owner'?' — Beheerder':' — Verkoop');
+
+  onSnapshot(collection(db,'counterpointHistory'),snap=>{counterpointHistory=snap.docs.map(d=>({id:d.id,...d.data()}));renderCounterpointHistory();});
+  onSnapshot(doc(db,'counterpointMeta','main'),snap=>{counterpointMeta=snap.exists()?snap.data():null;renderCounterpointHistory();});
   applyRoleUI();
 
   startCatalogListener();
