@@ -757,10 +757,17 @@ function buildOrderPreview(){
   const customer=$('catalogCustomerName').value.trim()||'Klant';
   const number=editingSaleId?`BESTELLING-${editingSaleId.slice(0,6).toUpperCase()}`:orderNumber();
   const date=new Date().toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'});
-  const rows=sortedItems.map(item=>{
+  const lastMQSIndex=sortedItems.reduce((last,item,index)=>
+    String(item.category||'').trim().toUpperCase()==='MQS'?index:last,-1);
+  const rows=sortedItems.map((item,index)=>{
     const product=products.find(p=>p.id===item.productId);
     const unitLabel=item.unitType==='crt'?`CRT${product?.unitsPerCarton?` (${product.unitsPerCarton})`:''}`:(item.unitLabel||unitLabelForProduct(product,item.unitType));
-    return `<tr><td>${safe(item.productCode||'')}</td><td>${safe(item.name)}</td><td>${unitLabel}</td><td>${item.qty}</td><td>CG ${item.price.toFixed(2)}</td><td>CG ${(item.qty*item.price).toFixed(2)}</td></tr>`;
+    const row=`<tr><td>${safe(item.productCode||'')}</td><td>${safe(item.name)}</td><td>${unitLabel}</td><td>${item.qty}</td><td>CG ${item.price.toFixed(2)}</td><td>CG ${(item.qty*item.price).toFixed(2)}</td></tr>`;
+    const hasMoreAfterMQS=lastMQSIndex>=0 && lastMQSIndex<sortedItems.length-1;
+    const separator=(index===lastMQSIndex && hasMoreAfterMQS)
+      ? '<tr aria-hidden="true"><td colspan="6" style="padding:0;border:0;border-top:6px solid #000;height:8px"></td></tr>'
+      : '';
+    return row+separator;
   }).join('');
   const total=items.reduce((s,i)=>s+i.qty*i.price,0);
   const note=$('catalogOrderNote').value.trim();
