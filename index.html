@@ -640,7 +640,7 @@ window.addEventListener('unhandledrejection',function(e){
     <h2>Klant Historie (CounterPoint)</h2>
     <div id="cpAdminUpload" class="panel" style="margin:10px 0">
       <h3>Historie bijwerken</h3>
-      <p>Kies het nieuwste Excel-bestand uit CounterPoint. De volledige Excel-lijst wordt opgeslagen en hieronder als tabel getoond. De vorige lijst wordt vervangen.</p>
+      <p>Kies het nieuwste Excel-bestand uit CounterPoint. De import wordt in kleine delen verwerkt. Zoek daarna een klant; de maanden blijven bovenaan zichtbaar tijdens het scrollen.</p>
       <input id="cpExcelFile" type="file" accept=".xlsx,.xls">
       <button id="cpImportBtn" type="button" class="btn primary" style="margin-top:10px">HISTORIE BIJWERKEN</button>
       <div id="cpImportMsg" class="message"></div>
@@ -4232,160 +4232,125 @@ function cpCellText(v){
   if(typeof v==='object'&&v instanceof Date)return v.toLocaleDateString('nl-NL');
   return String(v);
 }
-function cpWorkbookRows(){
-  return counterpointHistory.filter(x=>x.kind==='workbookChunk').sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0)).flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
-}
-function cpMatches(row,q){
-  if(!q)return true;
-  return row.some(v=>cpCellText(v).toLowerCase().includes(q));
-}
+function cpWorkbookRows(){return [];}
+function cpMatches(row,q){if(!q)return true;return row.some(v=>cpCellText(v).toLowerCase().includes(q));}
 function cpCustomerKey(name){return String(name||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,120)||'klant';}
+function cpDisplayCustomerName(name){return String(name||'').trim().replace(/\s+/g,' ');}
 function cpCustomerNumber(name){const m=String(name||'').match(/(?:^|\s)(\d{3,})(?:\s|[-–:]|$)/);return m?m[1]:'';}
-function cpDisplayCustomerName(name){return String(name||'').replace(/^\s*\*+\s*/, '').trim();}
 function cpCustomerIndex(){return Array.isArray(counterpointMeta?.customers)?counterpointMeta.customers:[];}
-function cpSalesVisibleColumns(headerRows, rows){
-  const maxCols=Math.max(1,...headerRows.map(r=>r.length),...rows.map(r=>r.length));
-  const yearRow=headerRows.find(r=>r.some(v=>/^year$/i.test(String(v||'').trim())))||[];
-  const monthRow=headerRows.find(r=>r.some(v=>/^month number$/i.test(String(v||'').trim())))||[];
-  const currentYear=new Date().getFullYear(), currentMonth=new Date().getMonth()+1;
-  let activeYear=null; const keep=[];
-  for(let c=0;c<maxCols;c++){
-    const y=Number(String(yearRow[c]||'').trim()); if(y>=2000&&y<=2100)activeYear=y;
-    const m=Number(String(monthRow[c]||'').trim());
-    if(c<3){keep.push(c);continue;}
-    if(activeYear===currentYear && m>=1 && m<=currentMonth)keep.push(c);
-    else if(activeYear===currentYear-1 && currentMonth<=6 && m>=7 && m<=12)keep.push(c);
-  }
-  return keep.length>3?keep:Array.from({length:maxCols},(_,i)=>i);
+const CP_MONTHS=['JAN','FEB','MRT','APR','MEI','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
+function cpNormHeader(v){return String(v||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ');}
+function cpFindCol(headers,names){const h=(headers||[]).map(cpNormHeader);for(const n of names){const i=h.indexOf(cpNormHeader(n));if(i>=0)return i;}for(let i=0;i<h.length;i++){if(names.some(n=>h[i].includes(cpNormHeader(n))))return i;}return -1;}
+function cpNum(v){const n=Number(String(v??'').replace(/,/g,'.').replace(/[^0-9.\-]/g,''));return Number.isFinite(n)?n:0;}
+function cpYearFromRow(row,yearCol,currentYear){
+  if(yearCol>=0){const y=parseInt(String(row?.[yearCol]||''),10);if(y>=2000&&y<=2100)return y;}
+  for(const v of row||[]){const m=String(v||'').match(/\b(20\d{2})\b/);if(m)return Number(m[1]);}
+  return currentYear;
 }
-function cpRenderSalesCustomer(rows,label=''){
-  if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
-  const headers=Array.isArray(counterpointMeta?.headerRows)?counterpointMeta.headerRows:[];
-  const cols=cpSalesVisibleColumns(headers,rows);
-  const monthNames=['','JAN','FEB','MRT','APR','MEI','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
-  const yearRow=headers.find(r=>r.some(v=>/^year$/i.test(String(v||'').trim())))||[];
-  const monthRow=headers.find(r=>r.some(v=>/^month number$/i.test(String(v||'').trim())))||[];
-  let activeYear=null; const labels=[];
-  for(let c=0;c<Math.max(yearRow.length,monthRow.length);c++){
-    const y=Number(String(yearRow[c]||'').trim()); if(y>=2000&&y<=2100)activeYear=y;
-    const m=Number(String(monthRow[c]||'').trim()); labels[c]=m>=1&&m<=12?`${monthNames[m]} ${activeYear||''}`.trim():'';
+function cpMonthFromRow(row,monthCol,currentMonth){
+  if(monthCol>=0){const m=parseInt(String(row?.[monthCol]||''),10);if(m>=1&&m<=12)return m;}
+  for(const v of row||[]){const t=String(v||'').trim();if(/^([1-9]|1[0-2])$/.test(t))return Number(t);}
+  return currentMonth;
+}
+function cpMonthlyTable(rows,headers,customerName){
+  const itemCol=cpFindCol(headers,['item id','item','product code','code']);
+  const descrCol=cpFindCol(headers,['descr','description','product','item description']);
+  const yearCol=cpFindCol(headers,['year','jaar']);
+  const monthCol=cpFindCol(headers,['month number','month','maand']);
+  const qtyCol=cpFindCol(headers,['qty','quantity','qty sold','quantity sold','aantal']);
+  if(itemCol<0||descrCol<0){cpRenderTable([headers,...rows],customerName);return;}
+  let cy=null,cm=null;const map=new Map();
+  for(const row of rows){
+    cy=cpYearFromRow(row,yearCol,cy);cm=cpMonthFromRow(row,monthCol,cm);
+    const code=String(row?.[itemCol]||'').trim(),descr=String(row?.[descrCol]||'').trim();
+    if(!code||!descr||!cy||!cm)continue;
+    const key=cy+'|'+code+'|'+descr;if(!map.has(key))map.set(key,{year:cy,code,descr,months:Array(12).fill(0)});
+    const qty=qtyCol>=0?cpNum(row?.[qtyCol]):1;map.get(key).months[cm-1]+=qty;
   }
-  let html=`<div style="margin:8px 0;font-weight:800">${safe(label)}</div>`;
-  html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:13px"><thead><tr>';
-  cols.forEach((c,i)=>{let h=labels[c]||(i===0?'Klant':i===1?'Code':i===2?'Product':'');html+=`<th style="position:sticky;top:0;z-index:3;background:#f3f4f6;border:1px solid #d1d5db;padding:7px 8px;white-space:nowrap">${safe(h)}</th>`;});
-  html+='</tr></thead><tbody>';
-  rows.forEach(row=>{html+='<tr>';cols.forEach(c=>html+=`<td style="border:1px solid #e5e7eb;padding:5px 8px;white-space:nowrap">${safe(cpCellText(row[c]))}</td>`);html+='</tr>';});
-  html+='</tbody></table></div>';$('cpHistoryResults').innerHTML=html;
+  let data=[...map.values()];
+  if(currentRole==='sales'){
+    const now=new Date(),y=now.getFullYear();
+    data=data.filter(x=>x.year===y||(x.year===y-1&&now.getMonth()<6&&x.months.some((v,i)=>i>=6&&v)));
+  }
+  if(!data.length){cpRenderTable([headers,...rows],customerName);return;}
+  const years=[...new Set(data.map(x=>x.year))].sort((a,b)=>b-a);
+  let html=`<div style="margin:8px 0 12px;font-weight:900;font-size:1.05rem">${safe(customerName||'Klant Historie')}</div>`;
+  for(const year of years){
+    const items=data.filter(x=>x.year===year).sort((a,b)=>a.descr.localeCompare(b.descr,'nl',{sensitivity:'base'}));
+    html+=`<div style="margin:16px 0 6px;font-size:1.1rem;font-weight:900">${year}</div><div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:#fff"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px"><thead><tr><th style="position:sticky;top:0;left:0;z-index:4;background:#f3f4f6;border:1px solid #e5e7eb;padding:7px">CODE</th><th style="position:sticky;top:0;left:90px;z-index:4;background:#f3f4f6;border:1px solid #e5e7eb;padding:7px">PRODUCT</th>${CP_MONTHS.map(m=>`<th style="position:sticky;top:0;z-index:3;background:#f3f4f6;border:1px solid #e5e7eb;padding:7px;text-align:center">${m}</th>`).join('')}</tr></thead><tbody>`;
+    for(const x of items)html+=`<tr><td style="position:sticky;left:0;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.code)}</td><td style="position:sticky;left:90px;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.descr)}</td>${x.months.map(v=>`<td style="border:1px solid #e5e7eb;padding:6px;text-align:center">${v?String(Math.round(v*100)/100):''}</td>`).join('')}</tr>`;
+    html+='</tbody></table></div>';
+  }
+  $('cpHistoryResults').innerHTML=html;
 }
 function cpRenderTable(rows,label=''){
   if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
-  const maxCols=Math.max(...rows.map(r=>r.length),1);
-  let html='<div style="margin:8px 0;font-weight:800">'+safe(label||(`${rows.length} regels`))+'</div>';
+  const maxCols=Math.max(...rows.map(r=>r.length),1);let html='<div style="margin:8px 0;font-weight:800">'+safe(label||(`${rows.length} regels`))+'</div>';
   html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:13px">';
-  rows.forEach((row,ri)=>{html+='<tr>';for(let c=0;c<maxCols;c++){const val=cpCellText(row[c]);const tag=ri<5&&currentRole!=='sales'?'th':'td';html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'background:#f3f4f6;font-weight:800;':''}">${safe(val)}</${tag}>`;}html+='</tr>';});
+  rows.forEach((row,ri)=>{html+='<tr>';for(let c=0;c<maxCols;c++){const val=cpCellText(row[c]);const tag=ri===0?'th':'td';html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'position:sticky;top:0;background:#f3f4f6;font-weight:800;':''}">${safe(val)}</${tag}>`;}html+='</tr>';});
   html+='</table></div>';$('cpHistoryResults').innerHTML=html;
 }
 function renderCounterpointHistory(){
-  if(!$('cpHistoryResults'))return;
-  if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
-  const q=String($('cpHistorySearch')?.value||'').trim().toLowerCase();
-  if(currentRole==='sales'){
-    const customers=cpCustomerIndex();
-    if(!customers.length){$('cpHistoryResults').innerHTML='<div class="muted">Klantindex nog niet beschikbaar. De beheerder moet het nieuwste CounterPoint Excel-bestand één keer opnieuw importeren.</div>';return;}
-    if(q.length<2){$('cpHistoryResults').innerHTML='<div class="muted">Typ minimaal 2 letters van de klantnaam of het klantnummer. De grote Excel-lijst wordt niet geladen.</div>';return;}
-    const hits=customers.filter(c=>`${c.name||''} ${cpDisplayCustomerName(c.name||'')} ${c.number||''}`.toLowerCase().includes(q)).slice(0,25);
-    if(!hits.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen klant gevonden.</div>';return;}
-    $('cpHistoryResults').innerHTML='<div style="font-weight:800;margin:8px 0">Kies klant:</div>'+hits.map(c=>`<button type="button" class="btn light cp-customer-pick" data-key="${safe(c.key)}" style="display:block;width:100%;text-align:left;margin:6px 0">${safe(cpDisplayCustomerName(c.name))}${c.number?` · ${safe(c.number)}`:''}</button>`).join('');
-    $('cpHistoryResults').querySelectorAll('.cp-customer-pick').forEach(b=>b.onclick=()=>loadCounterpointCustomer(b.dataset.key));
-    return;
-  }
-  if(!counterpointLoaded){$('cpHistoryResults').innerHTML='<div class="muted">Open Klant Historie om de gegevens te laden.</div>';return;}
-  const allRows=cpWorkbookRows();
-  if(!allRows.length){$('cpHistoryResults').innerHTML='<div class="muted">Nog geen CounterPoint Excel-bestand geïmporteerd.</div>';return;}
-  const rows=q?allRows.filter(r=>cpMatches(r,q)):allRows;
-  cpRenderTable(rows,q?`${rows.length} regels gevonden`:`${rows.length} regels`);
+  if(!$('cpHistoryResults'))return;if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
+  const q=String($('cpHistorySearch')?.value||'').trim().toLowerCase(),customers=cpCustomerIndex();
+  if(!customers.length){$('cpHistoryResults').innerHTML='<div class="muted">Nog geen CounterPoint historie beschikbaar. De beheerder moet het Excel-bestand importeren.</div>';return;}
+  if(q.length<2){$('cpHistoryResults').innerHTML='<div class="muted">Typ minimaal 2 letters van de klantnaam of het klantnummer. Alleen de gekozen klant wordt geladen, zodat de website snel blijft.</div>';return;}
+  const hits=customers.filter(c=>`${c.name||''} ${c.number||''}`.toLowerCase().includes(q)).slice(0,40);
+  if(!hits.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen klant gevonden.</div>';return;}
+  $('cpHistoryResults').innerHTML='<div style="font-weight:800;margin:8px 0">Kies klant:</div>'+hits.map(c=>`<button type="button" class="btn light cp-customer-pick" data-key="${safe(c.key)}" style="display:block;width:100%;text-align:left;margin:6px 0">${safe(c.name)}${c.number?` · ${safe(c.number)}`:''}</button>`).join('');
+  $('cpHistoryResults').querySelectorAll('.cp-customer-pick').forEach(b=>b.onclick=()=>loadCounterpointCustomer(b.dataset.key));
 }
 async function loadCounterpointCustomer(key){
-  if(!key)return;
-  $('cpHistoryResults').innerHTML='<div class="muted">Klantgeschiedenis wordt geladen...</div>';
-  try{
-    const snap=await getDocs(query(collection(db,'counterpointHistory'),where('kind','==','customerChunk'),where('customerKey','==',key)));
+  if(!key)return;$('cpHistoryResults').innerHTML='<div class="muted">Klantgeschiedenis wordt geladen...</div>';
+  try{const snap=await getDocs(query(collection(db,'counterpointHistory'),where('kind','==','customerChunk'),where('customerKey','==',key)));
     const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(a.chunkIndex||0)-(b.chunkIndex||0));
     const rows=docs.flatMap(x=>{const r=x.rows||{};return Object.keys(r).sort((a,b)=>Number(a)-Number(b)).map(k=>Array.isArray(r[k])?r[k]:[]);});
-    const customer=cpCustomerIndex().find(c=>c.key===key);
-    cpRenderSalesCustomer(rows,cpDisplayCustomerName(customer?.name)||'Klant Historie');
+    const customer=cpCustomerIndex().find(c=>c.key===key),headers=docs.find(x=>Array.isArray(x.headers))?.headers||counterpointMeta?.headers||[];
+    cpMonthlyTable(rows,headers,customer?.name||'Klant Historie');
   }catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klantgeschiedenis laden mislukt: '+safe(e?.message||e)+'</div>';}
 }
 async function loadCounterpointHistoryOnce(force=false){
-  if(counterpointLoading)return;
-  if(currentRole==='sales'){
-    counterpointLoading=true;
-    try{const metaSnap=await getDoc(doc(db,'counterpointMeta','main'));counterpointMeta=metaSnap.exists()?metaSnap.data():null;counterpointLoaded=false;renderCounterpointHistory();}
-    catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klant Historie laden mislukt: '+safe(e?.message||e)+'</div>';}
-    finally{counterpointLoading=false;}return;
-  }
-  if(counterpointLoaded&&!force){renderCounterpointHistory();return;}
-  counterpointLoading=true;if($('cpHistoryResults'))$('cpHistoryResults').innerHTML='<div class="muted">Klant Historie wordt geladen...</div>';
-  try{const [histSnap,metaSnap]=await Promise.all([getDocs(collection(db,'counterpointHistory')),getDoc(doc(db,'counterpointMeta','main'))]);counterpointHistory=histSnap.docs.map(d=>({id:d.id,...d.data()}));counterpointMeta=metaSnap.exists()?metaSnap.data():null;counterpointLoaded=true;renderCounterpointHistory();}
-  catch(e){counterpointLoaded=false;if($('cpHistoryResults'))$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klant Historie laden mislukt: '+safe(e?.message||e)+'</div>';}
+  if(counterpointLoading)return;counterpointLoading=true;
+  try{const metaSnap=await getDoc(doc(db,'counterpointMeta','main'));counterpointMeta=metaSnap.exists()?metaSnap.data():null;counterpointLoaded=false;renderCounterpointHistory();}
+  catch(e){$('cpHistoryResults').innerHTML='<div class="message" style="color:#b91c1c">Klant Historie laden mislukt: '+safe(e?.message||e)+'</div>';}
   finally{counterpointLoading=false;}
 }
-
 function parseCounterpointWorkbookRaw(wb){
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  if(!ws)throw new Error('Excel-formaat niet herkend.');
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false,dateNF:'dd-mm-yyyy'});
-  if(!rows.length)throw new Error('Geen gegevens gevonden in dit Excel-bestand.');
+  const ws=wb.Sheets[wb.SheetNames[0]];if(!ws)throw new Error('Excel-formaat niet herkend.');
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false,dateNF:'dd-mm-yyyy'});if(!rows.length)throw new Error('Geen gegevens gevonden in dit Excel-bestand.');
   return rows.map(r=>r.map(v=>v===null||v===undefined?'':String(v)));
 }
+function cpDetectHeader(rows){
+  for(let n=0;n<Math.min(rows.length,60);n++){const vals=rows[n].map(cpNormHeader);if(vals.some(v=>v==='cust name'||v.includes('cust name'))&&vals.some(v=>v==='item id'||v.includes('item id')))return {index:n,row:rows[n]};}
+  throw new Error('Kolommen Cust Name en Item ID niet gevonden in Excel.');
+}
+async function cpSmallBatch(ops,size=4){for(let i=0;i<ops.length;i+=size){const b=writeBatch(db);for(const o of ops.slice(i,i+size)){o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data);}await b.commit();await new Promise(r=>setTimeout(r,15));}}
 async function replaceCounterpointWorkbook(rows,fileName){
-  const old=await getDocs(collection(db,'counterpointHistory'));
-  let ops=[];const flush=async()=>{if(!ops.length)return;const b=writeBatch(db);ops.forEach(o=>o.type==='delete'?b.delete(o.ref):b.set(o.ref,o.data));await b.commit();ops=[];};
-  for(const d of old.docs){ops.push({type:'delete',ref:d.ref});if(ops.length>=350)await flush();}await flush();
-  const CHUNK=10;
-  for(let i=0;i<rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'workbookChunk',chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=1)await flush();}await flush();
-  // Maak daarnaast een lichte klantindex + aparte klantblokken voor de tablet.
-  // Zoek eerst de echte kolommen op naam. CounterPoint kan extra kopregels boven de tabel hebben.
-  let custCol=-1,itemCol=-1,descrCol=-1;
-  for(const row of rows){
-    const vals=row.map(v=>String(v??'').trim().toLowerCase());
-    const c=vals.indexOf('cust name'), i=vals.indexOf('item id'), d=vals.indexOf('descr');
-    if(c>=0 && i>=0 && d>=0){custCol=c;itemCol=i;descrCol=d;break;}
-  }
-  if(custCol<0){custCol=0;itemCol=1;descrCol=2;}
-
-  const byKey=new Map(); let current=null;
-  for(const row of rows){
-    const rawName=String(row?.[custCol]||'').trim();
-    const itemId=String(row?.[itemCol]||'').trim();
-    const descr=String(row?.[descrCol]||'').trim();
-    const cleanName=cpDisplayCustomerName(rawName);
+  const hdr=cpDetectHeader(rows),headers=hdr.row,vals=headers.map(cpNormHeader);
+  const custCol=vals.findIndex(v=>v==='cust name'||v.includes('cust name')),itemCol=vals.findIndex(v=>v==='item id'||v.includes('item id')),descrCol=vals.findIndex(v=>v==='descr'||v.includes('descr'));
+  if(descrCol<0)throw new Error('Kolom Descr niet gevonden in Excel.');
+  const byKey=new Map();let current=null;
+  for(const row of rows.slice(hdr.index+1)){
+    const rawName=String(row?.[custCol]||'').trim(),itemId=String(row?.[itemCol]||'').trim(),descr=String(row?.[descrCol]||'').trim(),cleanName=cpDisplayCustomerName(rawName);
     const isHeader=/^(cust name|verkopen|eindtotaal|vendor id|year|month number)$/i.test(cleanName);
-    // Een ingevulde Cust Name op een artikelregel start een nieuwe klant.
-    if(rawName && itemId && descr && !isHeader){
-      const key=cpCustomerKey(cleanName);
-      if(!byKey.has(key))byKey.set(key,{name:cleanName,number:cpCustomerNumber(cleanName),key,rows:[]});
-      current=byKey.get(key);
-    }
-    // Productregels eronder hebben vaak een lege Cust Name; die horen bij de huidige klant.
-    if(current && row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
+    if(rawName&&itemId&&descr&&!isHeader){const key=cpCustomerKey(cleanName);if(!byKey.has(key))byKey.set(key,{name:cleanName,number:cpCustomerNumber(cleanName),key,rows:[]});current=byKey.get(key);}
+    if(current&&row.some(v=>String(v??'').trim()!==''))current.rows.push(row);
   }
-  const unique=[...byKey.values()];
-  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){ops.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});if(ops.length>=1)await flush();}}await flush();
+  const unique=[...byKey.values()];if(!unique.length)throw new Error('Geen klanten gevonden in dit Excel-bestand.');
+  const old=await getDocs(collection(db,'counterpointHistory'));
+  const deleteOps=old.docs.map(d=>({type:'delete',ref:d.ref}));await cpSmallBatch(deleteOps,4);
+  const CHUNK=15,writeOps=[];
+  for(const g of unique){for(let i=0;i<g.rows.length;i+=CHUNK){writeOps.push({type:'set',ref:doc(collection(db,'counterpointHistory')),data:{kind:'customerChunk',customerKey:g.key,customerName:g.name,customerNumber:g.number,chunkIndex:Math.floor(i/CHUNK),headers,rows:Object.fromEntries(g.rows.slice(i,i+CHUNK).map((r,j)=>[String(j),r]))}});}}
+  await cpSmallBatch(writeOps,3);
   const customers=unique.map(g=>({key:g.key,name:g.name,number:g.number})).sort((a,b)=>a.name.localeCompare(b.name));
-  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'fullWorkbookCustomerIndex',customers,headerRows:rows.slice(0,8)},{merge:true});
+  await setDoc(doc(db,'counterpointMeta','main'),{updatedAt:serverTimestamp(),fileName:String(fileName||''),rowCount:rows.length,updatedBy:auth.currentUser?.email||'',format:'customerMonthlyV2',headers,customers},{merge:true});
 }
 async function importCounterpointExcel(){
-  if(currentRole!=='owner')return;
-  const file=$('cpExcelFile')?.files?.[0]; if(!file){msg($('cpImportMsg'),'Kies eerst het CounterPoint Excel-bestand.',true);return;}
-  try{
-    msg($('cpImportMsg'),'Excel wordt gelezen en bijgewerkt... laat deze pagina open.');
-    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}), rows=parseCounterpointWorkbookRaw(wb);
-    await replaceCounterpointWorkbook(rows,file.name);
-    await loadCounterpointHistoryOnce(true);
-    msg($('cpImportMsg'),`Klaar. De volledige Excel-lijst met ${rows.length} regels is opgeslagen.`);
-    $('cpExcelFile').value='';
-  }catch(e){msg($('cpImportMsg'),'Import mislukt: '+e.message,true);}
+  if(currentRole!=='owner')return;const file=$('cpExcelFile')?.files?.[0];if(!file){msg($('cpImportMsg'),'Kies eerst het CounterPoint Excel-bestand.',true);return;}
+  const btn=$('cpImportBtn');try{if(btn)btn.disabled=true;msg($('cpImportMsg'),'Excel wordt gelezen en in kleine delen bijgewerkt... laat deze pagina open.');
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),rows=parseCounterpointWorkbookRaw(wb);await replaceCounterpointWorkbook(rows,file.name);await loadCounterpointHistoryOnce(true);
+    msg($('cpImportMsg'),`Klaar. ${rows.length} Excel-regels verwerkt. Zoek nu een klant om de maanden te bekijken.`);$('cpExcelFile').value='';
+  }catch(e){msg($('cpImportMsg'),'Import mislukt: '+e.message,true);}finally{if(btn)btn.disabled=false;}
 }
 if($('cpImportBtn'))$('cpImportBtn').onclick=importCounterpointExcel;
 if($('cpHistorySearch'))$('cpHistorySearch').oninput=renderCounterpointHistory;
