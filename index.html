@@ -732,8 +732,12 @@ function clearCatalogOrder(){
   $('catalogCustomerName').value='';
   $('catalogOrderNote').value='';
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=false;
-  document.querySelectorAll('.catalog-order-qty').forEach(input=>input.value='');
-  document.querySelectorAll('.catalog-order-unit').forEach(select=>select.value='each');
+  // Maak ALLE aantallen in de catalogus leeg, ook de aparte MQS-velden.
+  document.querySelectorAll('.catalog-order-qty, .mqs-order-qty').forEach(input=>input.value='');
+  document.querySelectorAll('.catalog-order-unit, .mqs-order-unit').forEach(select=>{
+    if([...select.options].some(option=>option.value==='each'))select.value='each';
+    else if(select.options.length)select.selectedIndex=0;
+  });
   updateCatalogCart();
   msg($('catalogOrderMessage'),'Winkelmand is leeggemaakt.');
 }
