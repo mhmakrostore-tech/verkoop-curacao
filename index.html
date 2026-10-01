@@ -697,6 +697,18 @@ function storedOrderLabel(s){
 }
 
 function catalogCartItems(){
+  // Synchroniseer alle zichtbare aantallen eerst met de winkelmand.
+  // Dit is extra belangrijk bij MQS, omdat meerdere MQS-formaten in één kaart staan.
+  document.querySelectorAll('.catalog-order-qty, .mqs-order-qty').forEach(input=>{
+    const productId=String(input.dataset.product||'');
+    if(!productId)return;
+    const qty=Number(input.value||0);
+    const unitSelector=input.classList.contains('mqs-order-qty')?'.mqs-order-unit':'.catalog-order-unit';
+    const unit=document.querySelector(`${unitSelector}[data-product="${CSS.escape(productId)}"]`);
+    const unitType=unit?.value||catalogCart[productId]?.unitType||'each';
+    if(qty>0)catalogCart[productId]={unitType,qty};
+    else if(Object.prototype.hasOwnProperty.call(catalogCart,productId))delete catalogCart[productId];
+  });
   return Object.entries(catalogCart).map(([productId,item])=>{
     const product=products.find(p=>p.id===productId);
     if(!product)return null;
@@ -713,7 +725,7 @@ function catalogCartItems(){
       qty,
       price
     };
-  }).filter(item=>item&&item.qty>0&&item.price>0);
+  }).filter(item=>item&&item.qty>0);
 }
 function updateCatalogCart(){
   const items=catalogCartItems();
