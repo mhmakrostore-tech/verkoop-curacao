@@ -4264,6 +4264,21 @@ function cpFixedMonthHeader(year){
     </div>
   </div>`;
 }
+function cpEnableRowSelection(){
+  const root=$('cpHistoryResults');if(!root)return;
+  root.querySelectorAll('tr.cp-product-row').forEach(row=>{
+    row.style.cursor='pointer';
+    row.title='Klik om deze productregel te selecteren';
+    row.onclick=()=>{
+      root.querySelectorAll('tr.cp-product-row').forEach(r=>{
+        r.classList.remove('cp-row-selected');
+        r.querySelectorAll('td').forEach(td=>td.style.background='#fff');
+      });
+      row.classList.add('cp-row-selected');
+      row.querySelectorAll('td').forEach(td=>td.style.background='#fff2a8');
+    };
+  });
+}
 function cpMonthlyTable(rows,headers,customerName){
   const itemCol=cpFindCol(headers,['item id','item','product code','code']);
   const descrCol=cpFindCol(headers,['descr','description','product','item description']);
@@ -4290,10 +4305,10 @@ function cpMonthlyTable(rows,headers,customerName){
   for(const year of years){
     const items=data.filter(x=>x.year===year).sort((a,b)=>a.descr.localeCompare(b.descr,'nl',{sensitivity:'base'}));
     html+=`<div style="overflow-x:auto">${cpFixedMonthHeader(year)}<div style="overflow-y:auto;max-height:68vh;border:1px solid #d1d5db;border-top:0;border-radius:0 0 10px 10px;background:#fff;min-width:1150px"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px"><tbody>`;
-    for(const x of items)html+=`<tr><td style="position:sticky;left:0;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.code)}</td><td style="position:sticky;left:90px;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.descr)}</td>${x.months.map(v=>`<td style="border:1px solid #e5e7eb;padding:6px;text-align:center">${v?String(Math.round(v*100)/100):''}</td>`).join('')}</tr>`;
+    for(const x of items)html+=`<tr class="cp-product-row"><td style="position:sticky;left:0;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.code)}</td><td style="position:sticky;left:90px;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.descr)}</td>${x.months.map(v=>`<td style="border:1px solid #e5e7eb;padding:6px;text-align:center">${v?String(Math.round(v*100)/100):''}</td>`).join('')}</tr>`;
     html+='</tbody></table></div></div>';
   }
-  $('cpHistoryResults').innerHTML=html;
+  $('cpHistoryResults').innerHTML=html;cpEnableRowSelection();
 }
 function cpRenderTable(rows,label=''){
   if(!rows.length){$('cpHistoryResults').innerHTML='<div class="muted">Geen resultaten gevonden.</div>';return;}
@@ -4305,13 +4320,13 @@ function cpRenderTable(rows,label=''){
   if(looksLikeMonthly){
     const year=new Date().getFullYear();
     html+=`<div style="overflow-x:auto">${cpFixedMonthHeader(year)}<div style="overflow-y:auto;max-height:68vh;border:1px solid #d1d5db;border-top:0;border-radius:0 0 10px 10px;background:white;min-width:1150px"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px"><tbody>`;
-    rows.forEach(row=>{html+='<tr>';for(let c=0;c<14;c++){const val=cpCellText(row[c]);html+=`<td style="border:1px solid #e5e7eb;padding:6px 8px;white-space:nowrap;${c===0?'position:sticky;left:0;background:#fff;z-index:2;':''}${c===1?'position:sticky;left:90px;background:#fff;z-index:2;':''}${c>1?'text-align:center;':''}">${safe(val)}</td>`;}html+='</tr>';});
+    rows.forEach(row=>{html+='<tr class="cp-product-row">';for(let c=0;c<14;c++){const val=cpCellText(row[c]);html+=`<td style="border:1px solid #e5e7eb;padding:6px 8px;white-space:nowrap;${c===0?'position:sticky;left:0;background:#fff;z-index:2;':''}${c===1?'position:sticky;left:90px;background:#fff;z-index:2;':''}${c>1?'text-align:center;':''}">${safe(val)}</td>`;}html+='</tr>';});
     html+='</tbody></table></div></div>';
   }else{
     html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px">';
     rows.forEach((row,ri)=>{html+='<tr>';for(let c=0;c<maxCols;c++){const val=cpCellText(row[c]);const tag=ri===0?'th':'td';html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'position:sticky;top:0;background:#f3f4f6;font-weight:800;color:#111;':''}">${safe(val)}</${tag}>`;}html+='</tr>';});
   }
-  if(!looksLikeMonthly)html+='</table></div>';$('cpHistoryResults').innerHTML=html;
+  if(!looksLikeMonthly)html+='</table></div>';$('cpHistoryResults').innerHTML=html;if(looksLikeMonthly)cpEnableRowSelection();
 }
 function renderCounterpointHistory(){
   if(!$('cpHistoryResults'))return;if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
