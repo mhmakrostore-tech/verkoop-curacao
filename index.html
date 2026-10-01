@@ -111,7 +111,7 @@ window.addEventListener('unhandledrejection',function(e){
     <span>Totaal: CG <strong id="catalogCartTotal">0.00</strong></span>
   </div>
   <div class="button-row no-print">
-    <button id="saveCatalogOrderBtn" class="btn primary" type="button">Bestelling opslaan</button>
+    <button id="saveCatalogOrderBtn" class="btn primary" type="button">Send Order</button>
     <button id="whatsappCatalogOrderBtn" class="btn secondary" type="button">Via WhatsApp</button>
     <button id="printCatalogOrderBtn" class="btn secondary" type="button">Print / PDF</button>
     <button id="clearCatalogOrderBtn" class="btn light" type="button">Winkelmand leegmaken</button>
@@ -2571,6 +2571,10 @@ function applyRoleUI(){
   if($('orderPickSetupPanel'))$('orderPickSetupPanel').classList.add('hidden');
   document.querySelectorAll('.product-admin-actions').forEach(el=>el.classList.toggle('hidden',isSales));
   if($('cpAdminUpload'))$('cpAdminUpload').classList.toggle('hidden',isSales);
+  // Verkoper: order alleen via Send Order; geen WhatsApp of Print/PDF.
+  if($('whatsappCatalogOrderBtn'))$('whatsappCatalogOrderBtn').classList.toggle('hidden',isSales);
+  if($('printCatalogOrderBtn'))$('printCatalogOrderBtn').classList.toggle('hidden',isSales);
+  if($('saveCatalogOrderBtn'))$('saveCatalogOrderBtn').textContent='Send Order';
 
   document.querySelectorAll('.tab').forEach(tab=>tab.classList.remove('active'));
   $('catalog').classList.add('active');
