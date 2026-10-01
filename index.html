@@ -44,7 +44,14 @@ body.tablet-mode .duplicate-mqs-group,
 body.tablet-mode .delete-mqs-group{display:none!important}
 .exp-line{margin-top:6px;font-weight:800;color:#111827}
 .catalog-note{margin-top:10px;padding:9px 10px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;font-size:.92rem;line-height:1.4}
-.catalog-note strong{color:#9a3412}</style>
+.catalog-note strong{color:#9a3412}
+.category-float-panel{position:fixed;right:18px;bottom:82px;width:min(300px,calc(100vw - 36px));max-height:60vh;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:0 14px 40px rgba(0,0,0,.24);padding:12px;z-index:10002}
+.category-float-panel strong{display:block;margin:2px 4px 10px;font-size:1.05rem}
+.category-float-list{display:grid;gap:7px}
+.category-float-list button{width:100%;border:1px solid var(--border);background:#f8fafc;border-radius:12px;padding:11px 12px;text-align:left;font-weight:800;cursor:pointer}
+.category-float-list button:hover{background:#fff7cc}
+@media(max-width:430px){.category-float-panel{right:12px;bottom:74px;width:calc(100vw - 24px)}}
+</style>
 
 <style>
 .admin-card-availability{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:8px 0 4px}
@@ -4598,9 +4605,40 @@ $('catalogHomeBtn').onclick=()=>{
   if(catalogTab)catalogTab.click();
   window.scrollTo({top:0,behavior:'smooth'});
 };
-$('scrollTopBtn').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
+function fillFloatingCategoryMenu(){
+  const list=$('categoryFloatList');
+  if(!list)return;
+  const names=[...new Set(products.filter(p=>p.internalOnly!==true).map(p=>String(p.category||'OVERIG').trim()||'OVERIG'))]
+    .sort((a,b)=>{if(a.toUpperCase()==='MQS')return -1;if(b.toUpperCase()==='MQS')return 1;return a.localeCompare(b,'nl',{sensitivity:'base'});});
+  list.innerHTML='';
+  for(const name of names){
+    const b=document.createElement('button');
+    b.type='button'; b.textContent=name;
+    b.onclick=()=>{
+      $('categoryFloatPanel')?.classList.add('hidden');
+      const catalogTab=document.querySelector('[data-tab="catalog"]');
+      if(catalogTab)catalogTab.click();
+      if($('category'))$('category').value=name;
+      if($('search'))$('search').value='';
+      render();
+      requestAnimationFrame(()=>{
+        const safeId='cat-'+name.replace(/[^a-z0-9]/gi,'-').toLowerCase();
+        document.getElementById(safeId)?.scrollIntoView({behavior:'smooth',block:'start'});
+      });
+    };
+    list.appendChild(b);
+  }
+}
+$('scrollTopBtn').onclick=()=>{
+  if(currentRole==='sales'){
+    fillFloatingCategoryMenu();
+    $('categoryFloatPanel')?.classList.toggle('hidden');
+  }else{
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+};
 window.addEventListener('scroll',()=>{
-  $('scrollTopBtn').classList.toggle('top-hidden',window.scrollY<350);
+  $('scrollTopBtn').classList.toggle('top-hidden',currentRole==='sales'?false:window.scrollY<350);
 },{passive:true});
 
 $('loginBtn').onclick=async()=>{
@@ -4853,6 +4891,7 @@ onAuthStateChanged(auth,async u=>{
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('email').textContent=email+(currentRole==='owner'?' — Beheerder':' — Verkoop');
+  if($('scrollTopBtn')&&currentRole==='sales'){$('scrollTopBtn').textContent='☰';$('scrollTopBtn').title='Kies categorie';$('scrollTopBtn').setAttribute('aria-label','Kies categorie');$('scrollTopBtn').classList.remove('top-hidden');}
 
   counterpointHistory=[];counterpointMeta=null;counterpointLoaded=false;counterpointLoading=false;
   applyRoleUI();
@@ -4893,6 +4932,10 @@ document.getElementById('saleCreditOption')?.addEventListener('change',()=>updat
   <div id="quickSearchReader" class="quick-search-reader hidden"></div>
   <button id="quickSearchStopBtn" class="btn light hidden" type="button" style="margin-top:8px">Stop scanner</button>
   <div id="quickSearchMsg" class="message"></div>
+</div>
+<div id="categoryFloatPanel" class="category-float-panel hidden no-print">
+  <strong>Kies categorie</strong>
+  <div id="categoryFloatList" class="category-float-list"></div>
 </div>
 <div class="floating-actions no-print">
   <button id="catalogHomeBtn" class="floating-btn" type="button" title="Terug naar Catalogus" aria-label="Terug naar Catalogus">🏠</button>
