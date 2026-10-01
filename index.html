@@ -710,6 +710,7 @@ function catalogCartItems(){
       productId,
       productCode:codeForUnit(product,unitType),
       name:productDisplayName(product),
+      category:String(product.category||'').trim(),
       unitType,
       unitLabel:unitLabelForProduct(product,unitType),
       qty,
@@ -748,10 +749,20 @@ function orderNumber(){
 function buildOrderPreview(){
   const items=catalogCartItems();
   if(!items.length){$('orderPreview').classList.add('hidden');$('orderPreview').innerHTML='';return;}
+  // Zet echte MQS-producten automatisch bovenaan de bestelbon, daarna de overige categorieën.
+  const sortedItems=[...items].sort((a,b)=>{
+    const ca=String(a.category||'').trim().toUpperCase();
+    const cb=String(b.category||'').trim().toUpperCase();
+    if(ca==='MQS' && cb!=='MQS')return -1;
+    if(cb==='MQS' && ca!=='MQS')return 1;
+    if(ca!==cb)return ca.localeCompare(cb,'nl');
+    return String(a.name||'').localeCompare(String(b.name||''),'nl');
+  });
+  const hasMQS=sortedItems.some(item=>String(item.category||'').trim().toUpperCase()==='MQS');
   const customer=$('catalogCustomerName').value.trim()||'Klant';
   const number=editingSaleId?`BESTELLING-${editingSaleId.slice(0,6).toUpperCase()}`:orderNumber();
   const date=new Date().toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'});
-  const rows=items.map(item=>{
+  const rows=sortedItems.map(item=>{
     const product=products.find(p=>p.id===item.productId);
     const unitLabel=item.unitType==='crt'?`CRT${product?.unitsPerCarton?` (${product.unitsPerCarton})`:''}`:(item.unitLabel||unitLabelForProduct(product,item.unitType));
     return `<tr><td>${safe(item.productCode||'')}</td><td>${safe(item.name)}</td><td>${unitLabel}</td><td>${item.qty}</td><td>CG ${item.price.toFixed(2)}</td><td>CG ${(item.qty*item.price).toFixed(2)}</td></tr>`;
@@ -760,7 +771,7 @@ function buildOrderPreview(){
   const note=$('catalogOrderNote').value.trim();
   // CREDIT hier is alleen een type/markering op een gewone verkoopbon.
   // Echte creditbonnen worden uitsluitend gemaakt via de aparte CREDIT-tab.
-  $('orderPreview').innerHTML=`${catalogOrderType()==='MQS'?'<div style="font-size:2.2rem;font-weight:900;text-align:center;margin-bottom:12px">MQS</div>':''}<h2>Verkoop Curaçao Bestelbon</h2><div class="order-meta"><div><strong>Bestelnummer</strong><br>${number}</div><div><strong>Datum</strong><br>${date}</div><div><strong>Klant</strong><br>${safe(customer)}</div></div><div><strong>Bestelling:</strong> ${safe(catalogOrderLabel())}</div><table class="order-table"><thead><tr><th>Code</th><th>Product</th><th>Eenheid</th><th>Aantal</th><th>Prijs</th><th>Totaal</th></tr></thead><tbody>${rows}</tbody></table><div class="total-box">Totaal: CG ${total.toFixed(2)}</div>${note?`<div class="meta" style="margin-top:12px"><strong>Notitie:</strong> ${safe(note)}</div>`:''}`;
+  $('orderPreview').innerHTML=`${hasMQS?'<div style="font-size:2.2rem;font-weight:900;text-align:center;margin-bottom:12px">MQS</div>':''}<h2>Verkoop Curaçao Bestelbon</h2><div class="order-meta"><div><strong>Bestelnummer</strong><br>${number}</div><div><strong>Datum</strong><br>${date}</div><div><strong>Klant</strong><br>${safe(customer)}</div></div><div><strong>Bestelling:</strong> ${safe(catalogOrderLabel())}</div><table class="order-table"><thead><tr><th>Code</th><th>Product</th><th>Eenheid</th><th>Aantal</th><th>Prijs</th><th>Totaal</th></tr></thead><tbody>${rows}</tbody></table><div class="total-box">Totaal: CG ${total.toFixed(2)}</div>${note?`<div class="meta" style="margin-top:12px"><strong>Notitie:</strong> ${safe(note)}</div>`:''}`;
   $('orderPreview').classList.remove('hidden');
 }
 function printCatalogOrder(){buildOrderPreview();if(!$('orderPreview').classList.contains('hidden'))window.print();}
