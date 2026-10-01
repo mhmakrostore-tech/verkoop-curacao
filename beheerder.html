@@ -4252,6 +4252,18 @@ function cpMonthFromRow(row,monthCol,currentMonth){
   for(const v of row||[]){const t=String(v||'').trim();if(/^([1-9]|1[0-2])$/.test(t))return Number(t);}
   return currentMonth;
 }
+function cpFixedMonthHeader(year){
+  const months=CP_MONTHS.map(m=>`<div style="border-left:1px solid #d1d5db;padding:8px 2px;text-align:center;font-weight:900">${m}</div>`).join('');
+  return `<div class="cp-fixed-month-header" style="position:sticky;top:0;z-index:30;background:#f3f4f6;border:2px solid #9ca3af;border-radius:10px 10px 0 0;overflow:hidden;color:#111;min-width:1150px">
+    <div style="display:grid;grid-template-columns:90px 330px repeat(12,minmax(52px,1fr));align-items:center;border-bottom:1px solid #9ca3af">
+      <div style="grid-column:1 / 3;padding:8px 10px;font-size:16px;font-weight:900">${year}</div>
+      <div style="grid-column:3 / 15;padding:8px;text-align:center;font-size:16px;font-weight:900;border-left:1px solid #9ca3af">MAANDEN ${year}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:90px 330px repeat(12,minmax(52px,1fr));align-items:stretch">
+      <div style="padding:8px;font-weight:900">CODE</div><div style="padding:8px;font-weight:900;border-left:1px solid #d1d5db">PRODUCT</div>${months}
+    </div>
+  </div>`;
+}
 function cpMonthlyTable(rows,headers,customerName){
   const itemCol=cpFindCol(headers,['item id','item','product code','code']);
   const descrCol=cpFindCol(headers,['descr','description','product','item description']);
@@ -4277,9 +4289,9 @@ function cpMonthlyTable(rows,headers,customerName){
   let html=`<div style="margin:8px 0 12px;font-weight:900;font-size:1.05rem">${safe(customerName||'Klant Historie')}</div>`;
   for(const year of years){
     const items=data.filter(x=>x.year===year).sort((a,b)=>a.descr.localeCompare(b.descr,'nl',{sensitivity:'base'}));
-    html+=`<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:#fff"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px"><thead><tr><th colspan="2" style="position:sticky;top:0;left:0;z-index:7;background:#f3f4f6;border:1px solid #d1d5db;padding:8px;text-align:left;font-size:15px">${year}</th><th colspan="12" style="position:sticky;top:0;z-index:6;background:#f3f4f6;border:1px solid #d1d5db;padding:8px;text-align:center;font-size:15px">MAANDEN ${year}</th></tr><tr><th style="position:sticky;top:35px;left:0;z-index:7;background:#f3f4f6;border:1px solid #d1d5db;padding:7px;min-width:90px">CODE</th><th style="position:sticky;top:35px;left:90px;z-index:7;background:#f3f4f6;border:1px solid #d1d5db;padding:7px;min-width:330px">PRODUCT</th>${CP_MONTHS.map(m=>`<th style="position:sticky;top:35px;z-index:6;background:#f3f4f6;border:1px solid #d1d5db;padding:7px;text-align:center;min-width:52px">${m}</th>`).join('')}</tr></thead><tbody>`;
+    html+=`<div style="overflow-x:auto">${cpFixedMonthHeader(year)}<div style="overflow-y:auto;max-height:68vh;border:1px solid #d1d5db;border-top:0;border-radius:0 0 10px 10px;background:#fff;min-width:1150px"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px"><tbody>`;
     for(const x of items)html+=`<tr><td style="position:sticky;left:0;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.code)}</td><td style="position:sticky;left:90px;background:#fff;border:1px solid #e5e7eb;padding:6px;white-space:nowrap">${safe(x.descr)}</td>${x.months.map(v=>`<td style="border:1px solid #e5e7eb;padding:6px;text-align:center">${v?String(Math.round(v*100)/100):''}</td>`).join('')}</tr>`;
-    html+='</tbody></table></div>';
+    html+='</tbody></table></div></div>';
   }
   $('cpHistoryResults').innerHTML=html;
 }
@@ -4290,16 +4302,16 @@ function cpRenderTable(rows,label=''){
   // maar bevatten geen opgeslagen kopregel. Voeg die hier zichtbaar en sticky toe.
   const looksLikeMonthly=maxCols>=14 && rows.some(r=>/^\d{3,}$/.test(String(r?.[0]||'').trim()) && String(r?.[1]||'').trim());
   let html='<div style="margin:8px 0;font-weight:800">'+safe(label||(`${rows.length} regels`))+'</div>';
-  html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px">';
   if(looksLikeMonthly){
     const year=new Date().getFullYear();
-    html+=`<thead><tr><th colspan="2" style="position:sticky;top:0;z-index:9;background:#f3f4f6;border:1px solid #d1d5db;padding:8px;text-align:left;font-size:15px;color:#111">${year}</th><th colspan="12" style="position:sticky;top:0;z-index:8;background:#f3f4f6;border:1px solid #d1d5db;padding:8px;text-align:center;font-size:15px;color:#111">MAANDEN ${year}</th></tr><tr><th style="position:sticky;top:36px;left:0;z-index:10;background:#f3f4f6;border:1px solid #d1d5db;padding:8px;min-width:90px;color:#111">CODE</th><th style="position:sticky;top:36px;left:90px;z-index:10;background:#f3f4f6;border:1px solid #d1d5db;padding:8px;min-width:330px;color:#111">PRODUCT</th>${CP_MONTHS.map(m=>`<th style="position:sticky;top:36px;z-index:9;background:#f3f4f6;border:1px solid #d1d5db;padding:8px;text-align:center;min-width:52px;color:#111">${m}</th>`).join('')}</tr></thead><tbody>`;
+    html+=`<div style="overflow-x:auto">${cpFixedMonthHeader(year)}<div style="overflow-y:auto;max-height:68vh;border:1px solid #d1d5db;border-top:0;border-radius:0 0 10px 10px;background:white;min-width:1150px"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px"><tbody>`;
     rows.forEach(row=>{html+='<tr>';for(let c=0;c<14;c++){const val=cpCellText(row[c]);html+=`<td style="border:1px solid #e5e7eb;padding:6px 8px;white-space:nowrap;${c===0?'position:sticky;left:0;background:#fff;z-index:2;':''}${c===1?'position:sticky;left:90px;background:#fff;z-index:2;':''}${c>1?'text-align:center;':''}">${safe(val)}</td>`;}html+='</tr>';});
-    html+='</tbody>';
+    html+='</tbody></table></div></div>';
   }else{
+    html+='<div style="overflow:auto;max-height:68vh;border:1px solid #d1d5db;border-radius:10px;background:white"><table style="border-collapse:separate;border-spacing:0;min-width:1150px;width:100%;font-size:13px">';
     rows.forEach((row,ri)=>{html+='<tr>';for(let c=0;c<maxCols;c++){const val=cpCellText(row[c]);const tag=ri===0?'th':'td';html+=`<${tag} style="border:1px solid #e5e7eb;padding:5px 8px;text-align:left;white-space:nowrap;${tag==='th'?'position:sticky;top:0;background:#f3f4f6;font-weight:800;color:#111;':''}">${safe(val)}</${tag}>`;}html+='</tr>';});
   }
-  html+='</table></div>';$('cpHistoryResults').innerHTML=html;
+  if(!looksLikeMonthly)html+='</table></div>';$('cpHistoryResults').innerHTML=html;
 }
 function renderCounterpointHistory(){
   if(!$('cpHistoryResults'))return;if($('cpLastUpdated'))$('cpLastUpdated').textContent=cpDateLabel(counterpointMeta?.updatedAt);
