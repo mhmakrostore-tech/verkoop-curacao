@@ -99,11 +99,7 @@ window.addEventListener('unhandledrejection',function(e){
       <input id="catalogOrderNote" placeholder="Optioneel">
     </div>
   </div>
-  <label>Bestelling plaatsen als</label>
   <div class="order-type-options">
-    <label><input type="radio" name="catalogOrderType" value="MQS" checked> MQS</label>
-    <label><input type="radio" name="catalogOrderType" value="TOPPERS"> TOPPERS</label>
-    <label><input type="radio" name="catalogOrderType" value="DIVERSEN"> DIVERSEN</label>
     <label><input id="catalogCreditOption" type="checkbox" value="CREDIT"> CREDIT</label>
   </div>
   <div id="catalogCartSummary" class="cart-summary">
@@ -683,7 +679,8 @@ function getProductCode(p){
   return String(p.productCode||p.code||'').trim();
 }
 function catalogOrderType(){
-  return document.querySelector('input[name="catalogOrderType"]:checked')?.value||'MQS';
+  const items=catalogCartItems();
+  return items.some(item=>String(item.category||'').trim().toUpperCase()==='MQS')?'MQS':'BESTELLING';
 }
 function catalogCreditChecked(){
   return !!document.getElementById('catalogCreditOption')?.checked;
@@ -734,8 +731,6 @@ function clearCatalogOrder(){
   editingSaleId='';
   $('catalogCustomerName').value='';
   $('catalogOrderNote').value='';
-  const mqs=document.querySelector('input[name="catalogOrderType"][value="MQS"]');
-  if(mqs)mqs.checked=true;
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=false;
   document.querySelectorAll('.catalog-order-qty').forEach(input=>input.value='');
   document.querySelectorAll('.catalog-order-unit').forEach(select=>select.value='each');
@@ -771,7 +766,7 @@ function buildOrderPreview(){
   const note=$('catalogOrderNote').value.trim();
   // CREDIT hier is alleen een type/markering op een gewone verkoopbon.
   // Echte creditbonnen worden uitsluitend gemaakt via de aparte CREDIT-tab.
-  $('orderPreview').innerHTML=`${hasMQS?'<div style="font-size:2.2rem;font-weight:900;text-align:center;margin-bottom:12px">MQS</div>':''}<h2>Verkoop Curaçao Bestelbon</h2><div class="order-meta"><div><strong>Bestelnummer</strong><br>${number}</div><div><strong>Datum</strong><br>${date}</div><div><strong>Klant</strong><br>${safe(customer)}</div></div><div><strong>Bestelling:</strong> ${safe(catalogOrderLabel())}</div><table class="order-table"><thead><tr><th>Code</th><th>Product</th><th>Eenheid</th><th>Aantal</th><th>Prijs</th><th>Totaal</th></tr></thead><tbody>${rows}</tbody></table><div class="total-box">Totaal: CG ${total.toFixed(2)}</div>${note?`<div class="meta" style="margin-top:12px"><strong>Notitie:</strong> ${safe(note)}</div>`:''}`;
+  $('orderPreview').innerHTML=`${hasMQS?'<div style="font-size:2.2rem;font-weight:900;text-align:center;margin-bottom:12px">MQS</div>':''}<h2>Verkoop Curaçao Bestelbon</h2><div class="order-meta"><div><strong>Bestelnummer</strong><br>${number}</div><div><strong>Datum</strong><br>${date}</div><div><strong>Klant</strong><br>${safe(customer)}</div></div>${catalogCreditChecked()?'<div><strong>CREDIT</strong></div>':''}<table class="order-table"><thead><tr><th>Code</th><th>Product</th><th>Eenheid</th><th>Aantal</th><th>Prijs</th><th>Totaal</th></tr></thead><tbody>${rows}</tbody></table><div class="total-box">Totaal: CG ${total.toFixed(2)}</div>${note?`<div class="meta" style="margin-top:12px"><strong>Notitie:</strong> ${safe(note)}</div>`:''}`;
   $('orderPreview').classList.remove('hidden');
 }
 function printCatalogOrder(){buildOrderPreview();if(!$('orderPreview').classList.contains('hidden'))window.print();}
@@ -850,8 +845,6 @@ function editSavedOrder(id){
   let editBaseType=String(sale.orderType||'MQS');
   let editCredit=!!sale.creditOption;
   if(editBaseType==='CREDIT' && sale.recordType!=='credit' && sale.isCredit!==true){editBaseType='MQS';editCredit=true;}
-  const orderRadio=document.querySelector(`input[name="catalogOrderType"][value="${editBaseType}"]`);
-  if(orderRadio)orderRadio.checked=true;
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=editCredit;
   catalogCart={};
   (sale.items||[]).forEach(item=>{
