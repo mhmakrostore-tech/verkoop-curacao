@@ -757,6 +757,15 @@ function orderNumber(){
   const now=new Date();
   return `VC-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
 }
+function nextPickOrderNumber(){
+  const yy=String(new Date().getFullYear()).slice(-2);
+  let max=0;
+  (sales||[]).forEach(s=>{
+    const m=String(s.pickOrderNumber||'').match(new RegExp('^'+yy+'-(\\d+)$'));
+    if(m)max=Math.max(max,Number(m[1])||0);
+  });
+  return `${yy}-${max+1}`;
+}
 function buildOrderPreview(){
   const items=catalogCartItems();
   if(!items.length){$('orderPreview').classList.add('hidden');$('orderPreview').innerHTML='';return;}
@@ -831,6 +840,7 @@ async function saveCatalogOrder(){
   const creatorEmail=String(auth.currentUser?.email||'').toLowerCase();
   const data={
     orderNumber:editingSaleId?(sales.find(s=>s.id===editingSaleId)?.orderNumber||orderNumber()):orderNumber(),
+    pickOrderNumber:editingSaleId?(sales.find(s=>s.id===editingSaleId)?.pickOrderNumber||nextPickOrderNumber()):nextPickOrderNumber(),
     customerName,
     orderType:selectedType,
     creditOption:catalogCreditChecked(),
