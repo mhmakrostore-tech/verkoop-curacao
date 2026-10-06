@@ -4104,8 +4104,13 @@ function renderList(){
           const first=group[0];
           const row=document.createElement('div');
           row.className='edit-mqs-group';
-          row.innerHTML=`<strong>${safe(mqsGroupDisplayName(group))}</strong>
-            <div class="edit-mqs-variants">${group.map(p=>safe(mqsVariantLabel(p))).join(' · ')}</div>
+          const imageProduct=group.find(p=>p.photoData)||first;
+          row.innerHTML=`<div style="display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;margin-bottom:8px">
+              ${imageProduct.photoData?`<img src="${imageProduct.photoData}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:10px;background:#eef0f3">`:'<div class="placeholder" style="width:64px;height:64px;border-radius:10px;background:#eef0f3;font-size:.72rem;text-align:center">Geen foto</div>'}
+              <div><strong>${safe(mqsGroupDisplayName(group))}</strong>
+                <div class="edit-mqs-variants">${group.map(p=>safe(mqsVariantLabel(p))).join(' · ')}</div>
+              </div>
+            </div>
             <div class="button-row">
               <button type="button" class="btn catalog-status-btn ${groupCatalogState(group)==='yes'?'status-yes':groupCatalogState(group)==='no'?'status-no':'status-internal'} catalog-toggle">${groupCatalogState(group)==='yes'?'🟢 JA':groupCatalogState(group)==='no'?'🔴 NEE':'🔒 INTERN'}</button>
               <button type="button" class="btn light edit-one">Bewerken</button>
