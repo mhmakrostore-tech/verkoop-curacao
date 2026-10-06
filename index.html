@@ -1380,6 +1380,12 @@ function normalizedPrices(p){
   };
 }
 function unitLabelForProduct(p,unitType){
+  // Bij categorie MQS heet EACH op scherm én bon voortaan MQS of 500 GR,
+  // afhankelijk van het opgeslagen MQS-formaat van dit product.
+  if(String(p?.category||'').trim().toUpperCase()==='MQS' && unitType==='each'){
+    const key=mqsFormatKeyForDisplay(p);
+    return key==='500'?'500 GR':'MQS';
+  }
   if(unitType==='p'){
     const n=Number(p?.unitsPerPack||0);
     return n>0?`P${n}`:'P';
@@ -3832,18 +3838,15 @@ function render(){
                 <span>${safe(mqsVariantLabel(p))}</span>
               </div>
               <div class="price-lines">
-                ${price>0?`<div class="price-line"><span class="price-label">EACH</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
-                ${hasCrtCount?(hasCrtPrice?`<div class="price-line"><span class="price-label">CRT (${crt} PCS)</span><strong>CG ${crtPrice.toFixed(2)}</strong></div>`:`<div class="price-line"><span class="price-label">CRT</span><strong>${crt} PCS</strong></div>`):''}
+                ${price>0?`<div class="price-line"><span class="price-label">${mqsFormatKeyForDisplay(p)==='500'?'500 GR':'MQS'}</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
               </div>
               <div class="mqs-variant-meta">
-                ${code?`EACH Code: ${safe(code)}`:''}
-                ${hasCrtCount&&crtCode?`<div>CRT Code: ${safe(crtCode)}</div>`:''}
+                ${code?`${mqsFormatKeyForDisplay(p)==='500'?'500 GR':'MQS'} Code: ${safe(code)}`:''}
                 ${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
               </div>
               <div class="mqs-order-row" style="grid-template-columns:110px 1fr 90px">
                 <select class="mqs-order-unit" data-product="${p.id}">
-                  <option value="each" ${current.unitType==='each'?'selected':''}>EACH</option>
-                  ${hasCrtPrice?`<option value="crt" ${current.unitType==='crt'?'selected':''}>CRT</option>`:''}
+                  <option value="each" selected>${mqsFormatKeyForDisplay(p)==='500'?'500 GR':'MQS'}</option>
                 </select>
                 <span>Aantal</span>
                 <input class="mqs-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="0" value="${current.qty||''}">
