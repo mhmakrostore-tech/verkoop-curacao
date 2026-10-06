@@ -1017,10 +1017,13 @@ function mqsFormatKey(p){
   if(label==='KG'||label==='1 KG'||label.startsWith('KG – '))return 'kg';
   return '';
 }
+function mqsBaseName(value){
+  return String(value||'').trim().replace(/\s+(?:500\s*gr|MQS)$/i,'').trim();
+}
 function loadMQSBulkValues(){
   const map={};
-  const wanted=String($('mqsProductName')?.value||'').trim().toLowerCase();
-  const matched=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&wanted&&String(p.name||'').trim().toLowerCase()===wanted);
+  const wanted=mqsBaseName($('mqsProductName')?.value||'').toLowerCase();
+  const matched=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&wanted&&mqsBaseName(p.name).toLowerCase()===wanted);
   matched.forEach(p=>{const key=mqsFormatKey(p);if(key)map[key]=p;});
 
   const fill=(key,codeId,priceId,crtCodeId,crtPriceId,crtId)=>{
@@ -1157,8 +1160,8 @@ async function saveMQSBulk(){
     {key:'mqs',format:'MQS',label:'MQS',weightValue:0,weightUnit:'gr',actualWeightKg:0,code:$('mqsCodeMqs').value.trim(),price:Number($('mqsPriceMqs').value||0),crtCode:$('mqsCrtCodeMqs').value.trim(),crtPrice:Number($('mqsCrtPriceMqs').value||0),crt:Number($('mqsCrtMqs').value||0)},
     {key:'500',format:'500',label:'500 gr',weightValue:500,weightUnit:'gr',actualWeightKg:0,code:$('mqsCode500').value.trim(),price:Number($('mqsPrice500').value||0),crtCode:$('mqsCrtCode500').value.trim(),crtPrice:Number($('mqsCrtPrice500').value||0),crt:Number($('mqsCrt500').value||0)}
   ];
-  const lookupName=(editingMQSOriginalName||productName).trim().toLowerCase();
-  const existingGroup=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&String(p.name||'').trim().toLowerCase()===lookupName);
+  const lookupName=mqsBaseName(editingMQSOriginalName||productName).toLowerCase();
+  const existingGroup=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&mqsBaseName(p.name).toLowerCase()===lookupName);
   const rowHasInput=r=>!!(r.code||r.price>0||r.crtCode||r.crtPrice>0||r.crt>0);
   // Bij een bestaand MQS-product mag alleen de foto/notitie/EXP gewijzigd worden.
   // De bestaande MQS-regels tellen dan als ingevuld, zodat er geen nieuwe dubbele regel ontstaat.
@@ -4220,8 +4223,8 @@ function edit(id){
     // MQS is edited as a product group. Load the group matching this exact product name.
     clearNormalEditForm();
     $('cat').value='MQS';updateMQSWeightUI();
-    editingMQSOriginalName=String(p.name||'').trim();
-    $('mqsProductName').value=p.name||'';
+    editingMQSOriginalName=mqsBaseName(p.name);
+    $('mqsProductName').value=editingMQSOriginalName;
     loadMQSBulkValues();
     setProductFormMode(true);
     photoData=p.photoData||'';
