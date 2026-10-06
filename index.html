@@ -1157,12 +1157,25 @@ async function saveMQSBulk(){
     {key:'mqs',format:'MQS',label:'MQS',weightValue:0,weightUnit:'gr',actualWeightKg:0,code:$('mqsCodeMqs').value.trim(),price:Number($('mqsPriceMqs').value||0),crtCode:$('mqsCrtCodeMqs').value.trim(),crtPrice:Number($('mqsCrtPriceMqs').value||0),crt:Number($('mqsCrtMqs').value||0)},
     {key:'500',format:'500',label:'500 gr',weightValue:500,weightUnit:'gr',actualWeightKg:0,code:$('mqsCode500').value.trim(),price:Number($('mqsPrice500').value||0),crtCode:$('mqsCrtCode500').value.trim(),crtPrice:Number($('mqsCrtPrice500').value||0),crt:Number($('mqsCrt500').value||0)}
   ];
-  if(rows.every(r=>!r.code&&r.price<=0&&!r.crtCode&&r.crtPrice<=0&&r.crt<=0))return msg($('formMsg'),'Vul minstens één MQS-formaat in.',true);
+  const lookupName=(editingMQSOriginalName||productName).trim().toLowerCase();
+  const existingGroup=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&String(p.name||'').trim().toLowerCase()===lookupName);
+  const rowHasInput=r=>!!(r.code||r.price>0||r.crtCode||r.crtPrice>0||r.crt>0);
+  // Bij een bestaand MQS-product mag alleen de foto/notitie/EXP gewijzigd worden.
+  // De bestaande MQS-regels tellen dan als ingevuld, zodat er geen nieuwe dubbele regel ontstaat.
+  if(!editingMQSOriginalName && rows.every(r=>!rowHasInput(r)))return msg($('formMsg'),'Vul minstens één MQS-formaat in.',true);
   try{
     for(const row of rows){
-      if(!row.code&&row.price<=0&&!row.crtCode&&row.crtPrice<=0&&row.crt<=0)continue;
-      const lookupName=(editingMQSOriginalName||productName).trim().toLowerCase();
-      const existing=products.find(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&String(p.name||'').trim().toLowerCase()===lookupName&&mqsFormatKey(p)===row.key);
+      const sameFormat=existingGroup.filter(p=>mqsFormatKey(p)===row.key);
+      const existing=sameFormat[0]||null;
+      if(!rowHasInput(row)&&!existing)continue;
+      // Tijdens bewerken: als de velden niet geladen/gewijzigd zijn, behoud de bestaande waarden.
+      if(existing && editingMQSOriginalName && !rowHasInput(row)){
+        row.code=existing.codeEach||existing.productCode||'';
+        row.price=Number(existing.priceEach??existing.price??0);
+        row.crtCode=existing.codeCrt||'';
+        row.crtPrice=Number(existing.priceCrt||0);
+        row.crt=Number(existing.unitsPerCarton||0);
+      }
       const data={
         name:productName,
         category:'MQS',
@@ -1188,8 +1201,13 @@ async function saveMQSBulk(){
         photoData:photoData||existing?.photoData||'',
         updatedAt:serverTimestamp()
       };
-      if(existing)await setDoc(doc(db,'catalogProducts',existing.id),data,{merge:true});
-      else await addDoc(collection(db,'catalogProducts'),{...data,createdAt:serverTimestamp()});
+      if(existing){
+        await setDoc(doc(db,'catalogProducts',existing.id),data,{merge:true});
+        // Ruim eventuele oude dubbele MQS-regels van hetzelfde formaat op.
+        for(const duplicate of sameFormat.slice(1))await deleteDoc(doc(db,'catalogProducts',duplicate.id));
+      }else{
+        await addDoc(collection(db,'catalogProducts'),{...data,createdAt:serverTimestamp()});
+      }
     }
     msg($('formMsg'),editingMQSOriginalName?`${productName} gewijzigd.`:`${productName} opgeslagen.`);editingMQSOriginalName='';setProductFormMode(false);
     // Maak het MQS-formulier leeg voor het volgende nieuwe product.
