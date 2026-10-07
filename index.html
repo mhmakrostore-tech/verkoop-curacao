@@ -1471,6 +1471,10 @@ function formatDate(dateStr){
   return `${Number(day)} ${monthName} ${year}`;
 }
 
+function normalizedDuplicateCode(value){
+  return String(value??'').trim().toUpperCase().replace(/\s+/g,'');
+}
+
 function normalizedCodes(p){
   return {each:String(p.codeEach??p.productCode??p.code??'').trim(),p12:String(p.codeP12??'').trim(),pack:String(p.codePack??'').trim(),crt:String(p.codeCrt??'').trim()};
 }
