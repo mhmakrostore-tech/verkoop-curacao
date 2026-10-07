@@ -51,6 +51,21 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 .category-float-list button{width:100%;border:1px solid var(--border);background:#f8fafc;border-radius:12px;padding:11px 12px;text-align:left;font-weight:800;cursor:pointer}
 .category-float-list button:hover{background:#fff7cc}
 @media(max-width:430px){.category-float-panel{right:12px;bottom:74px;width:calc(100vw - 24px)}}
+
+/* UPDATE 07-10-2026: grotere bestelbon + barcode */
+.order-preview .bon-customer{font-size:1.25rem;font-weight:900}
+.order-preview .order-table th,.order-preview .order-table td{font-size:1rem;border-left:0;border-right:0;border-top:0;border-bottom:1px solid #d1d5db;padding:10px 7px}
+.order-preview .order-table th{border-bottom:2px solid #111;background:#fff}
+.order-preview .bon-barcode svg{width:145px;max-width:100%;height:42px}
+@media print{
+ .order-preview{font-size:14pt;padding:0!important}
+ .order-preview h2{font-size:20pt}
+ .order-preview .bon-mqs-title{font-size:25pt!important}
+ .order-preview .bon-customer{font-size:17pt!important}
+ .order-preview .order-table th,.order-preview .order-table td{font-size:12pt!important;padding:8px 5px!important}
+ .order-preview .bon-barcode svg{width:38mm!important;height:12mm!important}
+ .order-preview .total-box{font-size:16pt!important;text-align:left!important}
+}
 </style>
 
 <style>
@@ -653,6 +668,7 @@ window.addEventListener('unhandledrejection',function(e){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
@@ -761,15 +777,37 @@ function nextPickOrderNumber(){
   });
   return `${yy}-${max+1}`;
 }
+function barcodeCodeForOrderItem(item,product){
+  if(!product)return String(item.productCode||'').trim();
+  const unit=String(item.unitType||'each').toLowerCase();
+  if(unit==='crt')return String(product.codeCrt||item.productCode||'').trim();
+  if(unit==='p12')return String(product.codeP12||item.productCode||'').trim();
+  if(unit==='pack')return String(product.codePack||item.productCode||'').trim();
+  return String(product.codeEach||product.productCode||item.productCode||'').trim();
+}
+function renderOrderBarcodes(){
+  if(typeof JsBarcode!=='function')return;
+  document.querySelectorAll('#orderPreview svg[data-barcode]').forEach(svg=>{
+    const value=svg.getAttribute('data-barcode')||'';
+    if(!value)return;
+    try{JsBarcode(svg,value,{format:'CODE128',displayValue:true,fontSize:12,height:36,margin:0});}catch(e){}
+  });
+}
 function buildOrderPreview(){
   const items=catalogCartItems();
   if(!items.length){$('orderPreview').classList.add('hidden');$('orderPreview').innerHTML='';return;}
-  // Zet echte MQS-producten automatisch bovenaan de bestelbon, daarna de overige categorieën.
+  // MQS bovenaan: eerst alle MQS-regels, daarna alle 500 GR-regels, daarna overige producten.
   const sortedItems=[...items].sort((a,b)=>{
     const ca=String(a.category||'').trim().toUpperCase();
     const cb=String(b.category||'').trim().toUpperCase();
-    if(ca==='MQS' && cb!=='MQS')return -1;
-    if(cb==='MQS' && ca!=='MQS')return 1;
+    const aMQS=ca==='MQS', bMQS=cb==='MQS';
+    if(aMQS!==bMQS)return aMQS?-1:1;
+    if(aMQS&&bMQS){
+      const ua=String(a.unitLabel||'').toUpperCase();
+      const ub=String(b.unitLabel||'').toUpperCase();
+      const ga=ua.includes('500')?1:0, gb=ub.includes('500')?1:0;
+      if(ga!==gb)return ga-gb;
+    }
     if(ca!==cb)return ca.localeCompare(cb,'nl');
     return String(a.name||'').localeCompare(String(b.name||''),'nl');
   });
@@ -777,26 +815,26 @@ function buildOrderPreview(){
   const customer=$('catalogCustomerName').value.trim()||'Klant';
   const number=editingSaleId?`BESTELLING-${editingSaleId.slice(0,6).toUpperCase()}`:orderNumber();
   const date=new Date().toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'});
-  const lastMQSIndex=sortedItems.reduce((last,item,index)=>
-    String(item.category||'').trim().toUpperCase()==='MQS'?index:last,-1);
+  const lastMQSIndex=sortedItems.reduce((last,item,index)=>String(item.category||'').trim().toUpperCase()==='MQS'?index:last,-1);
   const rows=sortedItems.map((item,index)=>{
     const product=products.find(p=>p.id===item.productId);
     const unitLabel=item.unitType==='crt'?`CRT${product?.unitsPerCarton?` (${product.unitsPerCarton})`:''}`:(item.unitLabel||unitLabelForProduct(product,item.unitType));
-    const row=`<tr><td>${safe(item.productCode||'')}</td><td>${safe(item.name)}</td><td>${unitLabel}</td><td>${item.qty}</td><td>CG ${item.price.toFixed(2)}</td><td>CG ${(item.qty*item.price).toFixed(2)}</td></tr>`;
-    const hasMoreAfterMQS=lastMQSIndex>=0 && lastMQSIndex<sortedItems.length-1;
-    const separator=(index===lastMQSIndex && hasMoreAfterMQS)
-      ? '<tr aria-hidden="true"><td colspan="6" style="padding:0;border:0;border-top:6px solid #000;height:8px"></td></tr>'
-      : '';
+    const code=barcodeCodeForOrderItem(item,product);
+    const row=`<tr><td>${safe(code)}</td><td>${safe(item.name)}</td><td>${safe(unitLabel)}</td><td>${item.qty}</td><td>CG ${item.price.toFixed(2)}</td><td>CG ${(item.qty*item.price).toFixed(2)}</td><td class="bon-barcode">${code?`<svg data-barcode="${safe(code)}"></svg>`:''}</td></tr>`;
+    const hasMoreAfterMQS=lastMQSIndex>=0&&lastMQSIndex<sortedItems.length-1;
+    const separator=(index===lastMQSIndex&&hasMoreAfterMQS)?'<tr aria-hidden="true"><td colspan="7" style="padding:0;border:0;border-top:6px solid #000;height:8px"></td></tr>':'';
     return row+separator;
   }).join('');
-  const total=items.reduce((s,i)=>s+i.qty*i.price,0);
+  const total=items.reduce((sum,item)=>sum+item.qty*item.price,0);
   const note=$('catalogOrderNote').value.trim();
-  // CREDIT hier is alleen een type/markering op een gewone verkoopbon.
-  // Echte creditbonnen worden uitsluitend gemaakt via de aparte CREDIT-tab.
-  $('orderPreview').innerHTML=`${hasMQS?'<div style="font-size:2.2rem;font-weight:900;text-align:center;margin-bottom:12px">MQS</div>':''}<h2>Verkoop Curaçao Bestelbon</h2><div class="order-meta"><div><strong>Bestelnummer</strong><br>${number}</div><div><strong>Datum</strong><br>${date}</div><div><strong>Klant</strong><br>${safe(customer)}</div></div>${catalogCreditChecked()?'<div><strong>CREDIT</strong></div>':''}<table class="order-table"><thead><tr><th>Code</th><th>Product</th><th>Eenheid</th><th>Aantal</th><th>Prijs</th><th>Totaal</th></tr></thead><tbody>${rows}</tbody></table><div class="total-box">Totaal: CG ${total.toFixed(2)}</div>${note?`<div class="meta" style="margin-top:12px"><strong>Notitie:</strong> ${safe(note)}</div>`:''}`;
+  $('orderPreview').innerHTML=`${hasMQS?'<div class="bon-mqs-title" style="font-size:2.2rem;font-weight:900;margin-bottom:12px">MQS</div>':''}<h2>Verkoop Curaçao Bestelbon</h2><div class="order-meta"><div><strong>Bestelnummer</strong><br>${number}</div><div><strong>Datum</strong><br>${date}</div><div><strong>Klant</strong><br><span class="bon-customer">${safe(customer)}</span></div></div>${catalogCreditChecked()?'<div><strong>CREDIT</strong></div>':''}<table class="order-table"><thead><tr><th>Code</th><th>Product</th><th>Eenheid</th><th>Aantal</th><th>Prijs</th><th>Totaal</th><th>Barcode</th></tr></thead><tbody>${rows}</tbody></table><div class="total-box">Totaal: CG ${total.toFixed(2)}</div>${note?`<div class="meta" style="margin-top:12px"><strong>Notitie:</strong> ${safe(note)}</div>`:''}`;
   $('orderPreview').classList.remove('hidden');
+  renderOrderBarcodes();
 }
-function printCatalogOrder(){buildOrderPreview();if(!$('orderPreview').classList.contains('hidden'))window.print();}
+function printCatalogOrder(){
+  buildOrderPreview();
+  if(!$('orderPreview').classList.contains('hidden'))setTimeout(()=>window.print(),120);
+}
 function buildCatalogWhatsAppText(){
   const customerName=$('catalogCustomerName').value.trim()||'Klant';
   const items=catalogCartItems();
