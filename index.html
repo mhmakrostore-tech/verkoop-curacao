@@ -695,7 +695,7 @@ import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,se
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
-let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
+let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
 
@@ -770,6 +770,7 @@ function setCatalogCartItem(productId,unitType,qty){
 function clearCatalogOrder(){
   catalogCart={};
   editingSaleId='';
+  draftPickOrderNumber='';
   $('catalogCustomerName').value='';
   $('catalogOrderNote').value='';
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=false;
@@ -790,10 +791,20 @@ function nextPickOrderNumber(){
   const yy=String(new Date().getFullYear()).slice(-2);
   let max=0;
   (sales||[]).forEach(s=>{
-    const m=String(s.pickOrderNumber||'').match(new RegExp('^'+yy+'-(\\d+)$'));
-    if(m)max=Math.max(max,Number(m[1])||0);
+    [s.pickOrderNumber,s.orderNumber].forEach(value=>{
+      const m=String(value||'').match(new RegExp('^'+yy+'-(\\d+)$'));
+      if(m)max=Math.max(max,Number(m[1])||0);
+    });
   });
-  return `${yy}-${max+1}`;
+  return `${yy}-${String(max+1).padStart(2,'0')}`;
+}
+function currentCatalogOrderNumber(){
+  if(editingSaleId){
+    const sale=(sales||[]).find(s=>s.id===editingSaleId);
+    return String(sale?.pickOrderNumber||sale?.orderNumber||'').trim()||nextPickOrderNumber();
+  }
+  if(!draftPickOrderNumber)draftPickOrderNumber=nextPickOrderNumber();
+  return draftPickOrderNumber;
 }
 function barcodeCodeForOrderItem(item,product){
   if(!product)return String(item.productCode||'').trim();
@@ -831,7 +842,7 @@ function buildOrderPreview(){
   });
   const hasMQS=sortedItems.some(item=>String(item.category||'').trim().toUpperCase()==='MQS');
   const customer=$('catalogCustomerName').value.trim()||'Klant';
-  const number=editingSaleId?`BESTELLING-${editingSaleId.slice(0,6).toUpperCase()}`:orderNumber();
+  const number=currentCatalogOrderNumber();
   const date=new Date().toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'});
   const lastMQSIndex=sortedItems.reduce((last,item,index)=>String(item.category||'').trim().toUpperCase()==='MQS'?index:last,-1);
   const rows=sortedItems.map((item,index)=>{
@@ -889,9 +900,10 @@ async function saveCatalogOrder(){
   const isCredit=false; // CREDIT als keuze blijft een gewone verkoopbon
   const total=items.reduce((sum,item)=>sum+item.qty*item.price,0);
   const creatorEmail=String(auth.currentUser?.email||'').toLowerCase();
+  const fixedOrderNumber=currentCatalogOrderNumber();
   const data={
-    orderNumber:editingSaleId?(sales.find(s=>s.id===editingSaleId)?.orderNumber||orderNumber()):orderNumber(),
-    pickOrderNumber:editingSaleId?(sales.find(s=>s.id===editingSaleId)?.pickOrderNumber||nextPickOrderNumber()):nextPickOrderNumber(),
+    orderNumber:fixedOrderNumber,
+    pickOrderNumber:fixedOrderNumber,
     customerName,
     orderType:selectedType,
     creditOption:catalogCreditChecked(),
@@ -1497,6 +1509,7 @@ function productPriceHtml(p){
   if(pr.p12>0) lines.push(`<div class="price-line"><span class="price-label">P12</span><strong>CG ${pr.p12.toFixed(2)}</strong></div>`);
   if(pr.pack>0&&pr.unitsPerPack>0) lines.push(`<div class="price-line"><span class="price-label">P${pr.unitsPerPack}</span><strong>CG ${pr.pack.toFixed(2)}</strong></div>`);
   if(pr.crt>0) lines.push(`<div class="price-line"><span class="price-label">CRT${pr.unitsPerCarton?` (${pr.unitsPerCarton} stuks)`:''}</span><strong>CG ${pr.crt.toFixed(2)}</strong></div>`);
+  else if(pr.unitsPerCarton>0) lines.push(`<div class="price-line"><span class="price-label">Aantal CRT</span><strong>${pr.unitsPerCarton}</strong></div>`);
   return `<div class="price-lines">${lines.join('')||'<div class="meta">Geen prijs ingevuld</div>'}</div>`;
 }
 
@@ -4022,7 +4035,7 @@ function render(){
                 ${price>0?`<div class="price-line"><span class="price-label">${mqsVariantLabel(p).toUpperCase()}</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
               </div>
               <div class="mqs-variant-meta">
-                ${code?`${mqsVariantLabel(p).toUpperCase()} Code: ${safe(code)}`:''}
+                ${(code||hasCrtCount)?`<div>${code?`${mqsVariantLabel(p).toUpperCase()} Code: ${safe(code)}`:''}${code&&hasCrtCount?' &nbsp;|&nbsp; ':''}${hasCrtCount?`Aantal CRT: ${crt}`:''}</div>`:''}
                 ${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
               </div>
               <div class="mqs-order-row" style="grid-template-columns:110px 1fr 90px">
