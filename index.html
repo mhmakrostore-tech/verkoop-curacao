@@ -1288,7 +1288,8 @@ async function saveMQSBulk(){
     [
       'mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs',
       'mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500',
-      'mqsCodeKg','mqsPriceKg','mqsCrtCodeKg','mqsCrtPriceKg','mqsCrtKg','mqsActualKg',
+      'mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg',
+      'mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg',
       'mqsExpiry1','mqsExpiry2'
     ].forEach(id=>{const el=$(id);if(el)el.value='';});
     photoData='';
@@ -3832,7 +3833,22 @@ function mqsGroupKey(p){
   return String(p.name||'').trim().toLowerCase();
 }
 function mqsGroupDisplayName(group){
-  return String(group?.[0]?.name||'MQS').trim()||'MQS';
+  return mqsBaseName(String(group?.[0]?.name||'MQS').trim())||'MQS';
+}
+// Oude Bonaire-kopieën kunnen hetzelfde MQS-formaat dubbel bevatten.
+// Toon per product maar één vak per formaat; 500 GR, 1 KG en 2 KG blijven apart.
+function dedupeMQSVariants(group){
+  const byFormat=new Map();
+  for(const p of group||[]){
+    const key=mqsFormatKeyForDisplay(p);
+    if(!['mqs','500','1kg','2kg'].includes(key))continue;
+    const current=byFormat.get(key);
+    if(!current){byFormat.set(key,p);continue;}
+    const score=x=>(String(x.mqsFormat||'').trim()?4:0)+(Number(x.priceEach??x.price??0)>0?2:0)+(normalizedCodes(x).each?1:0);
+    if(score(p)>score(current))byFormat.set(key,p);
+  }
+  const order={mqs:0,'500':1,'1kg':2,'2kg':3};
+  return [...byFormat.values()].sort((a,b)=>(order[mqsFormatKeyForDisplay(a)]??99)-(order[mqsFormatKeyForDisplay(b)]??99));
 }
 async function deleteMQSGroupByName(name){
   if(currentRole==='sales')return;
@@ -3932,7 +3948,8 @@ function render(){
 
     const isMQSCategoryView=category.toUpperCase()==='MQS';
     const mqsGrouped=isMQSCategoryView
-      ? Object.values(groups[category].filter(p=>['mqs','500','1kg','2kg'].includes(mqsFormatKeyForDisplay(p))).reduce((acc,p)=>{const k=mqsGroupKey(p);(acc[k]??=[]).push(p);return acc;},{}))
+      ? Object.values(groups[category].filter(p=>['mqs','500','1kg','2kg'].includes(mqsFormatKeyForDisplay(p))).reduce((acc,p)=>{const k=mqsBaseName(p.name).toLowerCase();(acc[k]??=[]).push(p);return acc;},{}))
+          .map(dedupeMQSVariants)
           .sort((a,b)=>mqsGroupDisplayName(a).localeCompare(mqsGroupDisplayName(b),'nl',{sensitivity:'base'}))
       : null;
 
