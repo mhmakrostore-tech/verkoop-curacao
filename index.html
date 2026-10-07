@@ -1101,9 +1101,7 @@ function loadMQSBulkValues(){
     $(crtId).value=p.unitsPerCarton??'';
   };
   fill('mqs','mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs');
-  fill('500','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500','mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg','mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg',
-      'mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg',
-      'mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg');
+  fill('500','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500');
   fill('1kg','mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg');
   fill('2kg','mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg');
 
@@ -2983,8 +2981,11 @@ async function saveMQSExamplePhoto(){
   if(!value)return msg($('mqsExamplePhotoMsg'),'Kies eerst een foto.',true);
   try{
     await setDoc(doc(db,'catalogProducts','__mqs_catalog_sample__'),{isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,photoData:value,updatedAt:serverTimestamp()},{merge:true});
+    mqsExamplePhoto=value;
     mqsExamplePhotoDraft='';
-    msg($('mqsExamplePhotoMsg'),'MQS voorbeeldfoto is opgeslagen.');
+    refreshMQSExampleAdmin();
+    render();
+    msg($('mqsExamplePhotoMsg'),'MQS voorbeeldfoto is opgeslagen en zichtbaar voor Verkoop.');
   }catch(e){msg($('mqsExamplePhotoMsg'),'Opslaan mislukt: '+e.message,true);}
 }
 async function deleteMQSExamplePhoto(){
@@ -3033,7 +3034,15 @@ function startCatalogListener(){
   onSnapshot(
     collection(db,'catalogProducts'),
     s=>{
-      products=s.docs.map(d=>({id:d.id,...d.data()})).filter(p=>p.isMQSExample!==true);
+      // Lees de MQS SAMPLE uit dezelfde catalogus-snapshot. Zo zien Beheerder en Verkoop
+      // exact dezelfde foto, zonder afhankelijk te zijn van een aparte publicSettings-read.
+      const allCatalogDocs=s.docs.map(d=>({id:d.id,...d.data()}));
+      const sampleDoc=allCatalogDocs.find(p=>p.id==='__mqs_catalog_sample__'||p.isMQSExample===true);
+      if(sampleDoc && sampleDoc.photoData){
+        mqsExamplePhoto=String(sampleDoc.photoData||'');
+        refreshMQSExampleAdmin();
+      }
+      products=allCatalogDocs.filter(p=>p.id!=='__mqs_catalog_sample__'&&p.isMQSExample!==true);
 
       if(currentRole==='owner'){
         migrateAllToppersToUppercase().catch(e=>console.warn('TOPPERS migratie overgeslagen:',e));
