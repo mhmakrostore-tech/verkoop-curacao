@@ -980,7 +980,8 @@ function weightText(p){
   return `${Number(w.value).toLocaleString('nl-NL')} ${w.unit}`;
 }
 function productDisplayName(p){
-  const isMQS=String(p.category||'').trim().toUpperCase()==='MQS';
+  const category=String(p.category||'').trim().toUpperCase();
+  const isMQS=category==='MQS';
   if(isMQS){
     const base=String(p.name||'').trim();
     const key=mqsFormatKeyForDisplay(p);
@@ -995,7 +996,20 @@ function productDisplayName(p){
     if(!base||base.toUpperCase()==='MQS')return format;
     return `${base} ${format}`.trim();
   }
-  return `${p.name||''}${weightText(p)?' '+weightText(p):''}`.trim();
+
+  const base=String(p.name||'').trim();
+  const wt=weightText(p);
+  if(!wt)return base;
+
+  // TOPPERS: toon ingevuld gewicht met GR of OZ één keer in de omschrijving.
+  if(category==='TOPPERS'){
+    const normalizedWt=String(wt).replace(/\bG\b/gi,'GR').replace(/\s+/g,' ').trim();
+    const escaped=normalizedWt.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    if(new RegExp(`(?:^|\\s)${escaped}$`,'i').test(base))return base;
+    return `${base} ${normalizedWt}`.trim();
+  }
+
+  return `${base} ${wt}`.trim();
 }
 function mqsFormatKeyForDisplay(p){
   const stored=String(p.mqsFormat||'').toUpperCase();
