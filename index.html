@@ -206,6 +206,8 @@ window.addEventListener('unhandledrejection',function(e){
     <tbody>
       <tr><td><strong>MQS</strong></td><td>—</td><td><input id="mqsCodeMqs"></td><td><input id="mqsPriceMqs" type="number" min="0" step="0.01"></td><td><input id="mqsCrtCodeMqs" placeholder="CRT code"></td><td><input id="mqsCrtPriceMqs" type="number" min="0" step="0.01"></td><td><input id="mqsCrtMqs" type="number" min="0"></td></tr>
       <tr><td><strong>500 gr</strong></td><td>500 gr (vast)</td><td><input id="mqsCode500"></td><td><input id="mqsPrice500" type="number" min="0" step="0.01"></td><td><input id="mqsCrtCode500" placeholder="CRT code"></td><td><input id="mqsCrtPrice500" type="number" min="0" step="0.01"></td><td><input id="mqsCrt500" type="number" min="0"></td></tr>
+      <tr><td><strong>1 KG</strong></td><td>1 KG (vast)</td><td><input id="mqsCode1kg"></td><td><input id="mqsPrice1kg" type="number" min="0" step="0.01"></td><td><input id="mqsCrtCode1kg" placeholder="CRT code"></td><td><input id="mqsCrtPrice1kg" type="number" min="0" step="0.01"></td><td><input id="mqsCrt1kg" type="number" min="0"></td></tr>
+      <tr><td><strong>2 KG</strong></td><td>2 KG (vast)</td><td><input id="mqsCode2kg"></td><td><input id="mqsPrice2kg" type="number" min="0" step="0.01"></td><td><input id="mqsCrtCode2kg" placeholder="CRT code"></td><td><input id="mqsCrtPrice2kg" type="number" min="0" step="0.01"></td><td><input id="mqsCrt2kg" type="number" min="0"></td></tr>
     </tbody>
   </table>
 </div>
@@ -972,6 +974,8 @@ function productDisplayName(p){
     const key=mqsFormatKeyForDisplay(p);
     let format='MQS';
     if(key==='500')format='500 gr';
+    else if(key==='1kg')format='1 KG';
+    else if(key==='2kg')format='2 KG';
     else if(key==='kg'){
       const actual=Number(p.actualWeightKg||0);
       format=actual>0?`KG – ${Number(actual).toLocaleString('nl-NL',{maximumFractionDigits:3})} KG`:'KG';
@@ -985,10 +989,14 @@ function mqsFormatKeyForDisplay(p){
   const stored=String(p.mqsFormat||'').toUpperCase();
   if(stored==='MQS')return 'mqs';
   if(stored==='500')return '500';
+  if(stored==='1KG')return '1kg';
+  if(stored==='2KG')return '2kg';
   if(stored==='KG')return 'kg';
   const w=normalizedWeight(p);
   if(!w.value)return 'mqs';
   if(w.unit==='gr'&&w.value===500)return '500';
+  if(w.unit==='kg'&&Number(w.value)===1)return '1kg';
+  if(w.unit==='kg'&&Number(w.value)===2)return '2kg';
   if(w.unit==='kg')return 'kg';
   return '';
 }
@@ -996,7 +1004,7 @@ function compareProductsByNameWeight(a,b){
   const aMQS=String(a.category||'').trim().toUpperCase()==='MQS';
   const bMQS=String(b.category||'').trim().toUpperCase()==='MQS';
   if(aMQS&&bMQS){
-    const order={mqs:0,'500':1,kg:2};
+    const order={mqs:0,'500':1,'1kg':2,'2kg':3,kg:4};
     const ai=order[mqsFormatKeyForDisplay(a)]??999;
     const bi=order[mqsFormatKeyForDisplay(b)]??999;
     return ai-bi;
@@ -1063,16 +1071,20 @@ function mqsFormatKey(p){
   const stored=String(p.mqsFormat||'').toUpperCase();
   if(stored==='MQS')return 'mqs';
   if(stored==='500')return '500';
+  if(stored==='1KG')return '1kg';
+  if(stored==='2KG')return '2kg';
   if(stored==='KG')return 'kg';
 
   const label=productDisplayName(p).toUpperCase();
   if(label==='MQS')return 'mqs';
   if(label==='500 GR')return '500';
-  if(label==='KG'||label==='1 KG'||label.startsWith('KG – '))return 'kg';
+  if(label==='1 KG'||label.endsWith(' 1 KG'))return '1kg';
+  if(label==='2 KG'||label.endsWith(' 2 KG'))return '2kg';
+  if(label==='KG'||label.startsWith('KG – '))return 'kg';
   return '';
 }
 function mqsBaseName(value){
-  return String(value||'').trim().replace(/\s+(?:500\s*gr|MQS)$/i,'').trim();
+  return String(value||'').trim().replace(/\s+(?:500\s*gr|1\s*kg|2\s*kg|MQS)$/i,'').trim();
 }
 function loadMQSBulkValues(){
   const map={};
@@ -1089,7 +1101,11 @@ function loadMQSBulkValues(){
     $(crtId).value=p.unitsPerCarton??'';
   };
   fill('mqs','mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs');
-  fill('500','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500');
+  fill('500','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500','mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg','mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg',
+      'mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg',
+      'mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg');
+  fill('1kg','mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg');
+  fill('2kg','mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg');
 
   const expSource=matched.find(p=>p.expiryDate1||p.expiryDate2||p.expiryDate)||matched[0]||{};
   $('mqsExpiry1').value=isoToTypedDate(expSource.expiryDate1||expSource.expiryDate||'');
@@ -1212,7 +1228,9 @@ async function saveMQSBulk(){
   if(exp2===null)return msg($('formMsg'),'EXP 2 is ongeldig. Gebruik bijvoorbeeld 15-08-2027.',true);
   const rows=[
     {key:'mqs',format:'MQS',label:'MQS',weightValue:0,weightUnit:'gr',actualWeightKg:0,code:$('mqsCodeMqs').value.trim(),price:Number($('mqsPriceMqs').value||0),crtCode:$('mqsCrtCodeMqs').value.trim(),crtPrice:Number($('mqsCrtPriceMqs').value||0),crt:Number($('mqsCrtMqs').value||0)},
-    {key:'500',format:'500',label:'500 gr',weightValue:500,weightUnit:'gr',actualWeightKg:0,code:$('mqsCode500').value.trim(),price:Number($('mqsPrice500').value||0),crtCode:$('mqsCrtCode500').value.trim(),crtPrice:Number($('mqsCrtPrice500').value||0),crt:Number($('mqsCrt500').value||0)}
+    {key:'500',format:'500',label:'500 gr',weightValue:500,weightUnit:'gr',actualWeightKg:0,code:$('mqsCode500').value.trim(),price:Number($('mqsPrice500').value||0),crtCode:$('mqsCrtCode500').value.trim(),crtPrice:Number($('mqsCrtPrice500').value||0),crt:Number($('mqsCrt500').value||0)},
+    {key:'1kg',format:'1KG',label:'1 KG',weightValue:1,weightUnit:'kg',actualWeightKg:1,code:$('mqsCode1kg').value.trim(),price:Number($('mqsPrice1kg').value||0),crtCode:$('mqsCrtCode1kg').value.trim(),crtPrice:Number($('mqsCrtPrice1kg').value||0),crt:Number($('mqsCrt1kg').value||0)},
+    {key:'2kg',format:'2KG',label:'2 KG',weightValue:2,weightUnit:'kg',actualWeightKg:2,code:$('mqsCode2kg').value.trim(),price:Number($('mqsPrice2kg').value||0),crtCode:$('mqsCrtCode2kg').value.trim(),crtPrice:Number($('mqsCrtPrice2kg').value||0),crt:Number($('mqsCrt2kg').value||0)}
   ];
   const lookupName=mqsBaseName(editingMQSOriginalName||productName).toLowerCase();
   const existingGroup=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&mqsBaseName(p.name).toLowerCase()===lookupName);
@@ -1450,7 +1468,10 @@ function unitLabelForProduct(p,unitType){
   // afhankelijk van het opgeslagen MQS-formaat van dit product.
   if(String(p?.category||'').trim().toUpperCase()==='MQS' && unitType==='each'){
     const key=mqsFormatKeyForDisplay(p);
-    return key==='500'?'500 GR':'MQS';
+    if(key==='500')return '500 GR';
+    if(key==='1kg')return '1 KG';
+    if(key==='2kg')return '2 KG';
+    return 'MQS';
   }
   if(unitType==='p'){
     const n=Number(p?.unitsPerPack||0);
@@ -3790,6 +3811,8 @@ function mqsVariantLabel(p){
   const key=mqsFormatKeyForDisplay(p);
   if(key==='mqs')return 'MQS';
   if(key==='500')return '500 gr';
+  if(key==='1kg')return '1 KG';
+  if(key==='2kg')return '2 KG';
   if(key==='kg'){
     const actual=Number(p.actualWeightKg||0);
     return actual>0?`KG – ${Number(actual).toLocaleString('nl-NL',{maximumFractionDigits:3})} KG`:'KG';
@@ -3900,7 +3923,7 @@ function render(){
 
     const isMQSCategoryView=category.toUpperCase()==='MQS';
     const mqsGrouped=isMQSCategoryView
-      ? Object.values(groups[category].filter(p=>['mqs','500'].includes(mqsFormatKeyForDisplay(p))).reduce((acc,p)=>{const k=mqsGroupKey(p);(acc[k]??=[]).push(p);return acc;},{}))
+      ? Object.values(groups[category].filter(p=>['mqs','500','1kg','2kg'].includes(mqsFormatKeyForDisplay(p))).reduce((acc,p)=>{const k=mqsGroupKey(p);(acc[k]??=[]).push(p);return acc;},{}))
           .sort((a,b)=>mqsGroupDisplayName(a).localeCompare(mqsGroupDisplayName(b),'nl',{sensitivity:'base'}))
       : null;
 
@@ -3970,15 +3993,15 @@ function render(){
                 <span>${safe(mqsVariantLabel(p))}</span>
               </div>
               <div class="price-lines">
-                ${price>0?`<div class="price-line"><span class="price-label">${mqsFormatKeyForDisplay(p)==='500'?'500 GR':'MQS'}</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
+                ${price>0?`<div class="price-line"><span class="price-label">${mqsVariantLabel(p).toUpperCase()}</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
               </div>
               <div class="mqs-variant-meta">
-                ${code?`${mqsFormatKeyForDisplay(p)==='500'?'500 GR':'MQS'} Code: ${safe(code)}`:''}
+                ${code?`${mqsVariantLabel(p).toUpperCase()} Code: ${safe(code)}`:''}
                 ${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
               </div>
               <div class="mqs-order-row" style="grid-template-columns:110px 1fr 90px">
                 <select class="mqs-order-unit" data-product="${p.id}">
-                  <option value="each" selected>${mqsFormatKeyForDisplay(p)==='500'?'500 GR':'MQS'}</option>
+                  <option value="each" selected>${mqsVariantLabel(p).toUpperCase()}</option>
                 </select>
                 <span>Aantal</span>
                 <input class="mqs-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="0" value="${current.qty||''}">
