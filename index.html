@@ -4069,14 +4069,17 @@ function render(){
               </div>
               <div class="price-lines">
                 ${price>0?`<div class="price-line"><span class="price-label">${mqsVariantLabel(p).toUpperCase()}</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
+                ${crtPrice>0?`<div class="price-line"><span class="price-label">CRT</span><strong>CG ${crtPrice.toFixed(2)}</strong></div>`:''}
               </div>
               <div class="mqs-variant-meta">
                 ${(code||hasCrtCount)?`<div>${code?`${mqsVariantLabel(p).toUpperCase()} Code: ${safe(code)}`:''}${code&&hasCrtCount?' &nbsp;|&nbsp; ':''}${hasCrtCount?`Aantal CRT: ${crt}`:''}</div>`:''}
+                ${crtCode?`<div>CRT Code: ${safe(crtCode)}</div>`:''}
                 ${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
               </div>
               <div class="mqs-order-row" style="grid-template-columns:110px 1fr 90px">
                 <select class="mqs-order-unit" data-product="${p.id}">
-                  <option value="each" selected>${mqsVariantLabel(p).toUpperCase()}</option>
+                  <option value="each"${current.unitType!=='crt'?' selected':''}>${mqsVariantLabel(p).toUpperCase()}</option>
+                  ${crtPrice>0?`<option value="crt"${current.unitType==='crt'?' selected':''}>CRT</option>`:''}
                 </select>
                 <span>Aantal</span>
                 <input class="mqs-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="0" value="${current.qty||''}">
