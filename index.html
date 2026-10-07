@@ -4147,7 +4147,7 @@ function render(){
         card.innerHTML=`<div class="photo">${p.photoData?`<img src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
           <div class="body">
             <div class="cat">${safe(p.category||'OVERIG')}</div>
-            <h2>${safe(productDisplayName(p))}</h2>${String(p.category||'').trim().toUpperCase()!=='MQS'&&weightText(p)?`<div class="product-weight">${safe(weightText(p))}</div>`:''}
+            <h2>${safe(productDisplayName(p))}</h2>
             <div class="meta">${normalizedCodes(p).each?`${String(p.category||'').trim().toUpperCase()==='MQS'?'MQS':'EACH'} Code: ${safe(normalizedCodes(p).each)}<br>`:''}${normalizedCodes(p).p12?`P12 Code: ${safe(normalizedCodes(p).p12)}<br>`:''}${normalizedCodes(p).pack?`P${normalizedPrices(p).unitsPerPack||''} Code: ${safe(normalizedCodes(p).pack)}<br>`:''}${normalizedCodes(p).crt?`CRT Code: ${safe(normalizedCodes(p).crt)}<br>`:''}${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
             ${String(p.notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String(p.notes).trim())}</div>`:''}
             ${productPriceHtml(p)}
