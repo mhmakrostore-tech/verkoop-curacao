@@ -79,6 +79,11 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 .price-line strong{white-space:nowrap;flex:0 0 auto}
 .card .body{min-width:0}
 @media(min-width:761px){.category-products{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}}
+.mqs-example-card{background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+.mqs-example-card .photo{background:transparent;border-radius:18px;overflow:hidden}
+.mqs-example-card .photo img{width:100%;height:100%;object-fit:contain;background:#fff}
+.mqs-example-admin{margin:0 0 16px;padding:14px;border:1px dashed var(--border);border-radius:14px;background:#fff}
+.mqs-example-admin img{width:150px;max-height:190px;object-fit:contain;border-radius:12px;display:block;margin-top:10px}
 </style>
 
 </head>
@@ -164,6 +169,17 @@ window.addEventListener('unhandledrejection',function(e){
 
 
 <div id="mqsBulkBox" class="unit-box hidden">
+  <div class="mqs-example-admin">
+    <h3 style="margin-top:0">MQS voorbeeldfoto in Catalogus</h3>
+    <p class="meta">Deze foto staat als eerste bij MQS. Er komt geen naam, prijs, code of bestelknop bij.</p>
+    <input id="mqsExamplePhotoInput" type="file" accept="image/*">
+    <img id="mqsExamplePhotoPreview" class="hidden" alt="MQS voorbeeldfoto">
+    <div class="button-row" style="margin-top:10px">
+      <button id="saveMQSExamplePhotoBtn" type="button" class="btn secondary">Voorbeeldfoto opslaan</button>
+      <button id="deleteMQSExamplePhotoBtn" type="button" class="btn light">Voorbeeldfoto verwijderen</button>
+    </div>
+    <div id="mqsExamplePhotoMsg" class="message"></div>
+  </div>
   <h3>MQS-product</h3>
   <div style="margin-bottom:12px">
     <label>Productnaam</label>
@@ -677,7 +693,7 @@ import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,se
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
-let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
+let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
 
@@ -2933,6 +2949,40 @@ async function createOrderPickAccount(){
   }
 }
 
+function refreshMQSExampleAdmin(){
+  const img=$('mqsExamplePhotoPreview');
+  if(!img)return;
+  const src=mqsExamplePhotoDraft||mqsExamplePhoto;
+  if(src){img.src=src;img.classList.remove('hidden');}
+  else{img.removeAttribute('src');img.classList.add('hidden');}
+}
+async function saveMQSExamplePhoto(){
+  if(currentRole!=='owner')return;
+  const value=mqsExamplePhotoDraft||mqsExamplePhoto;
+  if(!value)return msg($('mqsExamplePhotoMsg'),'Kies eerst een foto.',true);
+  try{
+    await setDoc(doc(db,'publicSettings','mqsCatalogExample'),{photoData:value,updatedAt:serverTimestamp()},{merge:true});
+    mqsExamplePhotoDraft='';
+    msg($('mqsExamplePhotoMsg'),'MQS voorbeeldfoto is opgeslagen.');
+  }catch(e){msg($('mqsExamplePhotoMsg'),'Opslaan mislukt: '+e.message,true);}
+}
+async function deleteMQSExamplePhoto(){
+  if(currentRole!=='owner')return;
+  if(!confirm('MQS voorbeeldfoto verwijderen?'))return;
+  try{
+    await setDoc(doc(db,'publicSettings','mqsCatalogExample'),{photoData:'',updatedAt:serverTimestamp()},{merge:true});
+    mqsExamplePhoto='';mqsExamplePhotoDraft='';refreshMQSExampleAdmin();render();
+    msg($('mqsExamplePhotoMsg'),'MQS voorbeeldfoto is verwijderd.');
+  }catch(e){msg($('mqsExamplePhotoMsg'),'Verwijderen mislukt: '+e.message,true);}
+}
+function startMQSExampleListener(){
+  onSnapshot(doc(db,'publicSettings','mqsCatalogExample'),snap=>{
+    mqsExamplePhoto=snap.exists()?String(snap.data().photoData||''):'';
+    refreshMQSExampleAdmin();
+    render();
+  },e=>console.warn('MQS voorbeeldfoto laden mislukt',e));
+}
+
 function startCatalogListener(){
   onSnapshot(
     collection(db,'catalogProducts'),
@@ -3858,6 +3908,13 @@ function render(){
       container.innerHTML='';
 
       if(isMQSCategoryView){
+        // Vaste voorbeeldfoto staat altijd als eerste in MQS, zonder naam/prijs/code/bestelling.
+        if(mqsExamplePhoto && !term.trim()){
+          const exampleCard=document.createElement('article');
+          exampleCard.className='card mqs-example-card';
+          exampleCard.innerHTML=`<div class="photo"><img src="${mqsExamplePhoto}" alt="MQS voorbeeld"></div>`;
+          container.appendChild(exampleCard);
+        }
         const visibleGroups=mqsGrouped.filter(group=>{
           const hay=group.map(p=>`${p.name||''} ${mqsVariantLabel(p)} ${normalizedCodes(p).each}`).join(' ').toLowerCase();
           return hay.includes(term.toLowerCase());
@@ -4756,6 +4813,14 @@ $('photoInput').onchange=async()=>{
   $('preview').src=photoData;
   $('preview').classList.remove('hidden');
 };
+if($('mqsExamplePhotoInput'))$('mqsExamplePhotoInput').onchange=async()=>{
+  const f=$('mqsExamplePhotoInput').files?.[0];
+  if(!f)return;
+  mqsExamplePhotoDraft=await imageData(f);
+  refreshMQSExampleAdmin();
+};
+if($('saveMQSExamplePhotoBtn'))$('saveMQSExamplePhotoBtn').onclick=saveMQSExamplePhoto;
+if($('deleteMQSExamplePhotoBtn'))$('deleteMQSExamplePhotoBtn').onclick=deleteMQSExamplePhoto;
 $('saveBtn').onclick=async()=>{
   if(isWarehouseCategory())return saveWarehouseProduct();
   if(isMakroCategory())return saveMakroProduct();
@@ -4996,6 +5061,7 @@ onAuthStateChanged(auth,async u=>{
   applyRoleUI();
 
   startCatalogListener();
+  startMQSExampleListener();
   if(currentRole==='owner')startOwnerListeners();
 });
 
