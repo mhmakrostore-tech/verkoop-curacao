@@ -2961,7 +2961,7 @@ async function saveMQSExamplePhoto(){
   const value=mqsExamplePhotoDraft||mqsExamplePhoto;
   if(!value)return msg($('mqsExamplePhotoMsg'),'Kies eerst een foto.',true);
   try{
-    await setDoc(doc(db,'publicSettings','mqsCatalogExample'),{photoData:value,updatedAt:serverTimestamp()},{merge:true});
+    await setDoc(doc(db,'catalogProducts','__mqs_catalog_sample__'),{isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,photoData:value,updatedAt:serverTimestamp()},{merge:true});
     mqsExamplePhotoDraft='';
     msg($('mqsExamplePhotoMsg'),'MQS voorbeeldfoto is opgeslagen.');
   }catch(e){msg($('mqsExamplePhotoMsg'),'Opslaan mislukt: '+e.message,true);}
@@ -2970,13 +2970,14 @@ async function deleteMQSExamplePhoto(){
   if(currentRole!=='owner')return;
   if(!confirm('MQS voorbeeldfoto verwijderen?'))return;
   try{
-    await setDoc(doc(db,'publicSettings','mqsCatalogExample'),{photoData:'',updatedAt:serverTimestamp()},{merge:true});
+    await setDoc(doc(db,'catalogProducts','__mqs_catalog_sample__'),{isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,photoData:'',updatedAt:serverTimestamp()},{merge:true});
     mqsExamplePhoto='';mqsExamplePhotoDraft='';refreshMQSExampleAdmin();render();
     msg($('mqsExamplePhotoMsg'),'MQS voorbeeldfoto is verwijderd.');
   }catch(e){msg($('mqsExamplePhotoMsg'),'Verwijderen mislukt: '+e.message,true);}
 }
 function startMQSExampleListener(){
-  onSnapshot(doc(db,'publicSettings','mqsCatalogExample'),snap=>{
+  // De SAMPLE staat in catalogProducts, zodat zowel Beheerder als Verkoop/tablet hem mag lezen.
+  onSnapshot(doc(db,'catalogProducts','__mqs_catalog_sample__'),snap=>{
     mqsExamplePhoto=snap.exists()?String(snap.data().photoData||''):'';
     refreshMQSExampleAdmin();
     render();
@@ -2987,7 +2988,7 @@ function startCatalogListener(){
   onSnapshot(
     collection(db,'catalogProducts'),
     s=>{
-      products=s.docs.map(d=>({id:d.id,...d.data()}));
+      products=s.docs.map(d=>({id:d.id,...d.data()})).filter(p=>p.isMQSExample!==true);
 
       if(currentRole==='owner'){
         migrateAllToppersToUppercase().catch(e=>console.warn('TOPPERS migratie overgeslagen:',e));
@@ -4826,9 +4827,22 @@ $('saveBtn').onclick=async()=>{
   if(isMakroCategory())return saveMakroProduct();
   if(isMQSCategory())return saveMQSBulk();
 
-  const editingId=$('editId').value.trim();
-  const existing=editingId?products.find(p=>p.id===editingId):null;
+  let editingId=$('editId').value.trim();
+  let existing=editingId?products.find(p=>p.id===editingId):null;
   const name=$('name').value.trim();
+
+  // Veiligheidsnet voor oude uit Bonaire gekopieerde producten zonder prijs:
+  // als het bewerk-ID ontbreekt, zoek eerst op bestaande code/barcode zodat er geen duplicaat wordt aangemaakt.
+  if(!existing){
+    const enteredCodes=[$('codeEach').value,$('codeP12').value,$('codePack').value,$('codeCrt').value,$('barcode').value]
+      .map(normalizedDuplicateCode).filter(Boolean);
+    const matches=products.filter(p=>productAllCodes(p).some(c=>enteredCodes.includes(c)));
+    if(matches.length===1){
+      existing=matches[0];
+      editingId=existing.id;
+      $('editId').value=editingId;
+    }
+  }
 
   if(!name)return msg($('formMsg'),'Vul productnaam in.',true);
 
