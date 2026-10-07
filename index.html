@@ -2981,7 +2981,7 @@ async function saveMQSExamplePhoto(){
   const value=mqsExamplePhotoDraft||mqsExamplePhoto;
   if(!value)return msg($('mqsExamplePhotoMsg'),'Kies eerst een foto.',true);
   try{
-    await setDoc(doc(db,'catalogProducts','__mqs_catalog_sample__'),{isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,photoData:value,updatedAt:serverTimestamp()},{merge:true});
+    await setDoc(doc(db,'catalogProducts','mqsCatalogSample'),{isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,photoData:value,updatedAt:serverTimestamp()},{merge:true});
     mqsExamplePhoto=value;
     mqsExamplePhotoDraft='';
     refreshMQSExampleAdmin();
@@ -2993,7 +2993,7 @@ async function deleteMQSExamplePhoto(){
   if(currentRole!=='owner')return;
   if(!confirm('MQS voorbeeldfoto verwijderen?'))return;
   try{
-    await setDoc(doc(db,'catalogProducts','__mqs_catalog_sample__'),{isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,photoData:'',updatedAt:serverTimestamp()},{merge:true});
+    await setDoc(doc(db,'catalogProducts','mqsCatalogSample'),{isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,photoData:'',updatedAt:serverTimestamp()},{merge:true});
     mqsExamplePhoto='';mqsExamplePhotoDraft='';refreshMQSExampleAdmin();render();
     msg($('mqsExamplePhotoMsg'),'MQS voorbeeldfoto is verwijderd.');
   }catch(e){msg($('mqsExamplePhotoMsg'),'Verwijderen mislukt: '+e.message,true);}
@@ -3003,7 +3003,7 @@ function startMQSExampleListener(){
   // Oude versies bewaarden de foto in publicSettings. De beheerder migreert die automatisch
   // naar catalogProducts, zodat de verkoper niets opnieuw hoeft in te voeren.
   let migrationTried=false;
-  onSnapshot(doc(db,'catalogProducts','__mqs_catalog_sample__'),async snap=>{
+  onSnapshot(doc(db,'catalogProducts','mqsCatalogSample'),async snap=>{
     const value=snap.exists()?String(snap.data().photoData||''):'';
     if(value){
       mqsExamplePhoto=value;
@@ -3017,7 +3017,7 @@ function startMQSExampleListener(){
         const oldSnap=await getDoc(doc(db,'publicSettings','mqsCatalogExample'));
         const oldPhoto=oldSnap.exists()?String(oldSnap.data().photoData||''):'';
         if(oldPhoto){
-          await setDoc(doc(db,'catalogProducts','__mqs_catalog_sample__'),{
+          await setDoc(doc(db,'catalogProducts','mqsCatalogSample'),{
             isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,
             photoData:oldPhoto,updatedAt:serverTimestamp()
           },{merge:true});
@@ -3038,12 +3038,12 @@ function startCatalogListener(){
       // Lees de MQS SAMPLE uit dezelfde catalogus-snapshot. Zo zien Beheerder en Verkoop
       // exact dezelfde foto, zonder afhankelijk te zijn van een aparte publicSettings-read.
       const allCatalogDocs=s.docs.map(d=>({id:d.id,...d.data()}));
-      const sampleDoc=allCatalogDocs.find(p=>p.id==='__mqs_catalog_sample__'||p.isMQSExample===true);
+      const sampleDoc=allCatalogDocs.find(p=>p.id==='mqsCatalogSample'||p.isMQSExample===true);
       if(sampleDoc && sampleDoc.photoData){
         mqsExamplePhoto=String(sampleDoc.photoData||'');
         refreshMQSExampleAdmin();
       }
-      products=allCatalogDocs.filter(p=>p.id!=='__mqs_catalog_sample__'&&p.isMQSExample!==true);
+      products=allCatalogDocs.filter(p=>p.id!=='mqsCatalogSample'&&p.isMQSExample!==true);
 
       if(currentRole==='owner'){
         migrateAllToppersToUppercase().catch(e=>console.warn('TOPPERS migratie overgeslagen:',e));
