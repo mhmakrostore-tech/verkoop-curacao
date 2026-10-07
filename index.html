@@ -2977,8 +2977,32 @@ async function deleteMQSExamplePhoto(){
 }
 function startMQSExampleListener(){
   // De SAMPLE staat in catalogProducts, zodat zowel Beheerder als Verkoop/tablet hem mag lezen.
-  onSnapshot(doc(db,'catalogProducts','__mqs_catalog_sample__'),snap=>{
-    mqsExamplePhoto=snap.exists()?String(snap.data().photoData||''):'';
+  // Oude versies bewaarden de foto in publicSettings. De beheerder migreert die automatisch
+  // naar catalogProducts, zodat de verkoper niets opnieuw hoeft in te voeren.
+  let migrationTried=false;
+  onSnapshot(doc(db,'catalogProducts','__mqs_catalog_sample__'),async snap=>{
+    const value=snap.exists()?String(snap.data().photoData||''):'';
+    if(value){
+      mqsExamplePhoto=value;
+      refreshMQSExampleAdmin();
+      render();
+      return;
+    }
+    if(currentRole==='owner' && !migrationTried){
+      migrationTried=true;
+      try{
+        const oldSnap=await getDoc(doc(db,'publicSettings','mqsCatalogExample'));
+        const oldPhoto=oldSnap.exists()?String(oldSnap.data().photoData||''):'';
+        if(oldPhoto){
+          await setDoc(doc(db,'catalogProducts','__mqs_catalog_sample__'),{
+            isMQSExample:true,category:'MQS_SAMPLE',internalOnly:true,available:false,
+            photoData:oldPhoto,updatedAt:serverTimestamp()
+          },{merge:true});
+          return;
+        }
+      }catch(e){console.warn('Oude MQS voorbeeldfoto migreren mislukt',e);}
+    }
+    mqsExamplePhoto='';
     refreshMQSExampleAdmin();
     render();
   },e=>console.warn('MQS voorbeeldfoto laden mislukt',e));
