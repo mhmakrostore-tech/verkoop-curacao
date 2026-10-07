@@ -3890,6 +3890,7 @@ function addAdminAvailabilityControls(){
     if(!editBtn) return;
 
     let targetProducts=[];
+    const isMQSGroup=editBtn.classList.contains('edit-mqs-group');
     if(editBtn.classList.contains('edit-product-card')){
       const id=editBtn.dataset.id||'';
       const product=products.find(p=>String(p.id)===String(id));
@@ -3898,7 +3899,7 @@ function addAdminAvailabilityControls(){
       const groupName=String(card.querySelector('h2')?.textContent||'').trim().toLowerCase();
       targetProducts=products.filter(p=>
         String(p.category||'').trim().toUpperCase()==='MQS' &&
-        String(p.name||'').trim().toLowerCase()===groupName &&
+        mqsBaseName(String(p.name||'')).trim().toLowerCase()===groupName &&
         p.internalOnly!==true
       );
     }
@@ -3906,30 +3907,65 @@ function addAdminAvailabilityControls(){
 
     const wrap=document.createElement('div');
     wrap.className='admin-card-availability no-print';
-    const isAvailable=targetProducts.some(p=>p.available!==false);
-    wrap.innerHTML=`<span class="avail-label">Beschikbaar:</span>
-      <button type="button" class="${isAvailable?'active':''}" data-v="1">JA</button>
-      <button type="button" class="${!isAvailable?'active':''}" data-v="0">NEE</button>`;
 
-    wrap.querySelectorAll('button').forEach(btn=>{
-      btn.onclick=async ev=>{
-        ev.preventDefault(); ev.stopPropagation();
-        const newValue=btn.dataset.v==='1';
-        const y=window.scrollY;
-        try{
-          await setCatalogAvailability(targetProducts.map(p=>p.id),newValue);
-          targetProducts.forEach(p=>p.available=newValue);
-          wrap.querySelectorAll('button').forEach(b=>b.classList.toggle('active',(b.dataset.v==='1')===newValue));
-          const badge=card.querySelector('.badge');
-          if(badge) badge.textContent=newValue?'Beschikbaar':'Uitverkocht';
-          requestAnimationFrame(()=>window.scrollTo(0,y));
-          setTimeout(()=>window.scrollTo(0,y),120);
-        }catch(e){
-          console.error(e);
-          alert('Beschikbaar JA/NEE opslaan is mislukt.');
-        }
-      };
-    });
+    if(isMQSGroup){
+      const variants=dedupeMQSVariants(targetProducts);
+      wrap.innerHTML=`<span class="avail-label">Beschikbaar per gewicht:</span>
+        ${variants.map(p=>{
+          const available=p.available!==false;
+          return `<div class="mqs-availability-row" data-avail-product="${p.id}" style="display:flex;align-items:center;gap:6px;margin-top:5px">
+            <strong style="min-width:58px">${safe(mqsVariantLabel(p))}</strong>
+            <button type="button" class="${available?'active':''}" data-v="1" data-product-id="${p.id}">JA</button>
+            <button type="button" class="${!available?'active':''}" data-v="0" data-product-id="${p.id}">NEE</button>
+          </div>`;
+        }).join('')}`;
+      wrap.querySelectorAll('button[data-product-id]').forEach(btn=>{
+        btn.onclick=async ev=>{
+          ev.preventDefault(); ev.stopPropagation();
+          const id=btn.dataset.productId||'';
+          const newValue=btn.dataset.v==='1';
+          const product=products.find(p=>String(p.id)===String(id));
+          if(!product)return;
+          const y=window.scrollY;
+          try{
+            await setCatalogAvailability([id],newValue);
+            product.available=newValue;
+            const row=wrap.querySelector(`[data-avail-product="${CSS.escape(id)}"]`);
+            row?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',(b.dataset.v==='1')===newValue));
+            render();
+            requestAnimationFrame(()=>window.scrollTo(0,y));
+            setTimeout(()=>window.scrollTo(0,y),120);
+          }catch(e){
+            console.error(e);
+            alert('Beschikbaar JA/NEE opslaan is mislukt.');
+          }
+        };
+      });
+    }else{
+      const isAvailable=targetProducts.some(p=>p.available!==false);
+      wrap.innerHTML=`<span class="avail-label">Beschikbaar:</span>
+        <button type="button" class="${isAvailable?'active':''}" data-v="1">JA</button>
+        <button type="button" class="${!isAvailable?'active':''}" data-v="0">NEE</button>`;
+      wrap.querySelectorAll('button').forEach(btn=>{
+        btn.onclick=async ev=>{
+          ev.preventDefault(); ev.stopPropagation();
+          const newValue=btn.dataset.v==='1';
+          const y=window.scrollY;
+          try{
+            await setCatalogAvailability(targetProducts.map(p=>p.id),newValue);
+            targetProducts.forEach(p=>p.available=newValue);
+            wrap.querySelectorAll('button').forEach(b=>b.classList.toggle('active',(b.dataset.v==='1')===newValue));
+            const badge=card.querySelector('.badge');
+            if(badge) badge.textContent=newValue?'Beschikbaar':'Uitverkocht';
+            requestAnimationFrame(()=>window.scrollTo(0,y));
+            setTimeout(()=>window.scrollTo(0,y),120);
+          }catch(e){
+            console.error(e);
+            alert('Beschikbaar JA/NEE opslaan is mislukt.');
+          }
+        };
+      });
+    }
 
     const actions=card.querySelector('.product-admin-actions');
     if(actions) actions.parentElement.insertBefore(wrap,actions);
