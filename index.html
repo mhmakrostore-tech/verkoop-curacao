@@ -4017,7 +4017,14 @@ function render(){
   }
 
   const categoryNames=Object.keys(groups).sort((x,y)=>{if(x.toUpperCase()==='MQS')return -1;if(y.toUpperCase()==='MQS')return 1;return x.localeCompare(y,'nl');});
-  $('grid').innerHTML='';
+  // Bewaar bestaande categoriekaarten op de tablet bij live Firebase-updates.
+  // Zo blijven foto's, scrollpositie en de zichtbare categorie staan.
+  const tabletKeepDOM=document.body.classList.contains('tablet-mode');
+  const oldSections=new Map();
+  if(tabletKeepDOM){
+    $('grid').querySelectorAll('.category-section').forEach(el=>oldSections.set(el.dataset.categoryKey,el));
+  }
+  const newGrid=document.createDocumentFragment();
   $('categoryJumpbar').innerHTML='';
   // Tablet: render de eerste categorie direct en de overige stapsgewijs.
   const progressiveTabletCatalog=document.body.classList.contains('tablet-mode');
@@ -4037,6 +4044,8 @@ function render(){
 
     const shownCount=isMQSCategoryView?mqsGrouped.length:groups[category].length;
     const safeId='cat-'+category.replace(/[^a-z0-9]/gi,'-').toLowerCase();
+    const categoryKey=category;
+    const categorySignature=JSON.stringify(groups[category].map(p=>[p.id,p.name,p.photoData,p.available,p.priceEach,p.priceP12,p.pricePack,p.priceCrt,p.unitsPerPack,p.unitsPerCarton,p.codes,p.expiry1,p.expiry2,p.weight,p.weightValue,p.weightUnit]));
 
     const jump=document.createElement('button');
     jump.type='button';
@@ -4044,7 +4053,15 @@ function render(){
     jump.onclick=()=>document.getElementById(safeId)?.scrollIntoView({behavior:'smooth',block:'start'});
     $('categoryJumpbar').appendChild(jump);
 
+    const previous=oldSections.get(categoryKey);
+    if(previous && previous.dataset.catalogSignature===categorySignature){
+      newGrid.appendChild(previous);
+      categoryRenderIndex++;
+      continue;
+    }
     const section=document.createElement('section');
+    section.dataset.categoryKey=categoryKey;
+    section.dataset.catalogSignature=categorySignature;
     section.id=safeId;
     section.className='category-section';
     if(localStorage.getItem('msfkCategory:'+category)==='closed')section.classList.add('collapsed');
@@ -4240,27 +4257,43 @@ function render(){
     }else{
       deferredCategoryRenders.push({section,render:renderProductsInCategory});
     }
-    $('grid').appendChild(section);
+    newGrid.appendChild(section);
     categoryRenderIndex++;
   }
 
+  // Vervang pas na opbouw de gewijzigde categorieën; ongewijzigde kaarten blijven intact.
+  $('grid').replaceChildren(newGrid);
+
+  // Tablet: laad categorieproducten uitsluitend wanneer de categorie in beeld komt.
+  // Hiermee vermijden we tientallen zware kaarten/foto's tegelijk te maken.
   if(progressiveTabletCatalog && deferredCategoryRenders.length){
-    let nextCategory=0;
-    const renderNextCategory=()=>{
-      if(thisCatalogRender!==window.__catalogRenderGeneration)return;
-      // Houd de interface beschikbaar terwijl de overige categorieën verschijnen.
-      if(nextCategory>=deferredCategoryRenders.length)return;
-      const entry=deferredCategoryRenders[nextCategory++];
-      if(!entry.rendered){entry.render();entry.rendered=true;}
-      setTimeout(renderNextCategory,35);
+    const loadEntry=entry=>{
+      if(thisCatalogRender!==window.__catalogRenderGeneration||entry.rendered)return;
+      entry.rendered=true;
+      entry.render();
     };
-    setTimeout(renderNextCategory,60);
+    if('IntersectionObserver' in window){
+      const observer=new IntersectionObserver(entries=>{
+        for(const item of entries){
+          if(!item.isIntersecting)continue;
+          const entry=deferredCategoryRenders.find(e=>e.section===item.target);
+          if(entry)loadEntry(entry);
+          observer.unobserve(item.target);
+        }
+      },{rootMargin:'300px 0px'});
+      deferredCategoryRenders.forEach(entry=>observer.observe(entry.section));
+    }else{
+      // Oudere tablets: de categorie wordt geladen wanneer erop geklikt wordt.
+      deferredCategoryRenders.forEach(entry=>{
+        if(!entry.section.classList.contains('collapsed'))loadEntry(entry);
+      });
+    }
   }
 
   if(!categoryNames.length)$('grid').innerHTML='<div class="empty">Geen producten gevonden.</div>';
 
   updateCatalogCart();
-  renderList();
+  if(currentRole!=='sales')renderList(); // Beheerpagina nooit op tablet opbouwen
   if(currentRole==='sales')applyRoleUI();
 }
 let adminCatalogFilter='all';
