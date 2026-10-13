@@ -725,6 +725,41 @@ function storedOrderLabel(s){
   return base+(credit?' + CREDIT':'');
 }
 
+// Bewaar de lopende bestelling lokaal op dit apparaat, per ingelogd account.
+const DRAFT_PREFIX='verkoopCuracaoCatalogDraftV1:';
+function draftKey(){return DRAFT_PREFIX+String(auth?.currentUser?.email||'').toLowerCase();}
+function saveCatalogDraft(){
+  if(!auth?.currentUser)return;
+  try{
+    const inputs=document.querySelectorAll('.catalog-order-qty, .mqs-order-qty');
+    inputs.forEach(input=>{
+      const id=String(input.dataset.product||'');if(!id)return;
+      const qty=Number(input.value||0);
+      const selector=input.classList.contains('mqs-order-qty')?'.mqs-order-unit':'.catalog-order-unit';
+      const unit=document.querySelector(`${selector}[data-product="${CSS.escape(id)}"]`);
+      if(qty>0)catalogCart[id]={qty,unitType:unit?.value||catalogCart[id]?.unitType||'each'};
+      else delete catalogCart[id];
+    });
+    localStorage.setItem(draftKey(),JSON.stringify({cart:catalogCart,customer:$('catalogCustomerName').value,note:$('catalogOrderNote').value,credit:!!$('catalogCreditOption')?.checked,editingSaleId,draftPickOrderNumber}));
+  }catch(e){console.warn('Bestelling lokaal bewaren mislukt',e);}
+}
+function restoreCatalogDraft(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(draftKey())||'null');
+    if(!saved||typeof saved!=='object')return;
+    catalogCart=saved.cart&&typeof saved.cart==='object'&&!Array.isArray(saved.cart)?saved.cart:{};
+    $('catalogCustomerName').value=saved.customer||'';
+    $('catalogOrderNote').value=saved.note||'';
+    if($('catalogCreditOption'))$('catalogCreditOption').checked=!!saved.credit;
+    editingSaleId=saved.editingSaleId||'';
+    draftPickOrderNumber=saved.draftPickOrderNumber||'';
+  }catch(e){console.warn('Bestelling herstellen mislukt',e);}
+}
+function deleteCatalogDraft(){try{localStorage.removeItem(draftKey());}catch(e){}}
+// Sla wijzigingen direct op, ook als de pagina onverwacht wordt afgesloten.
+document.addEventListener('input',e=>{if(e.target.matches?.('#catalogCustomerName,#catalogOrderNote,.catalog-order-qty,.mqs-order-qty'))saveCatalogDraft();});
+document.addEventListener('change',e=>{if(e.target.matches?.('#catalogCreditOption,.catalog-order-unit,.mqs-order-unit,.catalog-order-qty,.mqs-order-qty'))saveCatalogDraft();});
+window.addEventListener('pagehide',saveCatalogDraft);
 function catalogCartItems(){
   // Synchroniseer alle zichtbare aantallen eerst met de winkelmand.
   // Dit is extra belangrijk bij MQS, omdat meerdere MQS-formaten in één kaart staan.
@@ -766,6 +801,7 @@ function setCatalogCartItem(productId,unitType,qty){
   if(qty<=0)delete catalogCart[productId];
   else catalogCart[productId]={unitType,qty};
   updateCatalogCart();
+  saveCatalogDraft();
 }
 function clearCatalogOrder(){
   catalogCart={};
@@ -781,6 +817,7 @@ function clearCatalogOrder(){
     else if(select.options.length)select.selectedIndex=0;
   });
   updateCatalogCart();
+  deleteCatalogDraft();
   msg($('catalogOrderMessage'),'Winkelmand is leeggemaakt.');
 }
 function orderNumber(){
@@ -927,7 +964,7 @@ async function saveCatalogOrder(){
       msg($('catalogOrderMessage'),'Bestelling opgeslagen.');
     }
     rememberCustomerName(customerName);
-    clearCatalogOrder();
+    saveCatalogDraft();
   }catch(e){
     msg($('catalogOrderMessage'),'Opslaan mislukt: '+e.message,true);
   }
@@ -949,6 +986,7 @@ function editSavedOrder(id){
   document.querySelector('[data-tab="catalog"]').click();
   render();
   updateCatalogCart();
+  saveCatalogDraft();
   msg($('catalogOrderMessage'),`Bestelling van ${sale.customerName||'klant'} wordt bewerkt.`);
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -5266,6 +5304,7 @@ onAuthStateChanged(auth,async u=>{
 
   counterpointHistory=[];counterpointMeta=null;counterpointLoaded=false;counterpointLoading=false;
   applyRoleUI();
+  restoreCatalogDraft();
 
   startCatalogListener();
   startMQSExampleListener();
@@ -5286,7 +5325,7 @@ if(!window.__adminAvailabilityObserver){
 
 
 // CREDIT is an extra option and can be combined with E.C / D.A / D.A COOL.
-document.getElementById('catalogCreditOption')?.addEventListener('change',()=>buildOrderPreview());
+document.getElementById('catalogCreditOption')?.addEventListener('change',()=>{buildOrderPreview();saveCatalogDraft();});
 document.getElementById('saleCreditOption')?.addEventListener('change',()=>updateSaleTotal());
 </script>
 <div class="quick-search-action no-print">
