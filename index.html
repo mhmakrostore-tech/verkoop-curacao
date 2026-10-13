@@ -928,7 +928,9 @@ function sendCatalogOrderWhatsApp(){
   if(!text)return;
   window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank','noopener');
 }
+let catalogOrderSending=false;
 async function saveCatalogOrder(){
+  if(catalogOrderSending)return;
   const customerName=$('catalogCustomerName').value.trim();
   const items=catalogCartItems();
   if(!customerName)return msg($('catalogOrderMessage'),'Vul de klantnaam in.',true);
@@ -952,21 +954,30 @@ async function saveCatalogOrder(){
     createdByEmail:creatorEmail,
     updatedAt:serverTimestamp()
   };
+  const wasEditing=!!editingSaleId;
+  catalogOrderSending=true;
+  const sendBtn=$('saveCatalogOrderBtn');
+  if(sendBtn)sendBtn.disabled=true;
   try{
     if(editingSaleId){
       if(currentRole==='sales'){
         return msg($('catalogOrderMessage'),'Tabletgebruikers kunnen bestaande bestellingen niet wijzigen.',true);
       }
       await setDoc(doc(db,'sales',editingSaleId),data,{merge:true});
-      msg($('catalogOrderMessage'),'Bestelling aangepast.');
+
     }else{
       await addDoc(collection(db,'sales'),{...data,createdAt:serverTimestamp()});
-      msg($('catalogOrderMessage'),'Bestelling opgeslagen.');
+
     }
-    rememberCustomerName(customerName);
-    saveCatalogDraft();
+    try{rememberCustomerName(customerName);}catch(e){console.warn('Klantnaam bewaren mislukt',e);}
+    // Alleen na succesvolle Firebase-opslag: winkelmand, invoervelden en lokaal concept wissen.
+    clearCatalogOrder();
+    msg($('catalogOrderMessage'),wasEditing?'Bestelling aangepast en winkelmand leeggemaakt.':'Bestelling verstuurd en winkelmand leeggemaakt.');
   }catch(e){
     msg($('catalogOrderMessage'),'Opslaan mislukt: '+e.message,true);
+  }finally{
+    catalogOrderSending=false;
+    if(sendBtn)sendBtn.disabled=false;
   }
 }
 function editSavedOrder(id){
