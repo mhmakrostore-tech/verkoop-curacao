@@ -1475,6 +1475,11 @@ function normalizedDuplicateCode(value){
   return String(value??'').trim().toUpperCase().replace(/\s+/g,'');
 }
 
+function productAllCodes(p){
+  const codes=normalizedCodes(p);
+  return [codes.each,codes.p12,codes.pack,codes.crt,p.barcode]
+    .map(normalizedDuplicateCode).filter(Boolean);
+}
 function normalizedCodes(p){
   return {each:String(p.codeEach??p.productCode??p.code??'').trim(),p12:String(p.codeP12??'').trim(),pack:String(p.codePack??'').trim(),crt:String(p.codeCrt??'').trim()};
 }
@@ -3761,9 +3766,15 @@ function saveExtraCategories(list){
   const clean=[...new Set(list.map(normalizeCategoryName).filter(Boolean))];
   localStorage.setItem('msfkExtraCategories',JSON.stringify(clean));
 }
+function hiddenCategoryNames(){
+  try{return JSON.parse(localStorage.getItem('msfkHiddenCategories')||'[]').map(normalizeCategoryName);}catch{return []}
+}
+function showCategoryAgain(name){
+  localStorage.setItem('msfkHiddenCategories',JSON.stringify(hiddenCategoryNames().filter(c=>c!==normalizeCategoryName(name))));
+}
 function allCategoryNames(){
   const fromProducts=products.map(p=>normalizeCategoryName(p.category||'OVERIG')).filter(Boolean);
-  const all=[...new Set([...fromProducts.map(normalizeCategoryName),...savedExtraCategories().map(normalizeCategoryName),'MAKRO','MAGAZIJN','MQS','TOPPERS','DIVERSEN','OVERIG'])];
+  const all=[...new Set([...fromProducts.map(normalizeCategoryName),...savedExtraCategories().map(normalizeCategoryName),'MAKRO','MAGAZIJN','MQS','TOPPERS','DIVERSEN','OVERIG'])].filter(c=>!hiddenCategoryNames().includes(c));
   return all.sort((a,b)=>{
     if(a==='MAKRO')return -1;
     if(b==='MAKRO')return 1;
@@ -3812,6 +3823,7 @@ async function addCategory(){
   const name=normalizeCategoryName($('newCategoryName').value);
   if(!name)return msg($('categoryManagerMessage'),'Vul een categorienaam in.',true);
   const extras=savedExtraCategories();
+  showCategoryAgain(name);
   if(!extras.includes(name))saveExtraCategories([...extras,name]);
   $('newCategoryName').value='';
   refreshCategorySelects();
@@ -3833,17 +3845,15 @@ async function renameCategory(oldName){
   }catch(e){msg($('categoryManagerMessage'),'Hernoemen mislukt: '+e.message,true);}
 }
 async function deleteCategory(name){
-  if(['MAKRO','MAGAZIJN','MQS','TOPPERS','DIVERSEN','OVERIG'].includes(normalizeCategoryName(name))){
-    return msg($('categoryManagerMessage'),`${name} is een vaste categorie en kan niet worden verwijderd.`,true);
-  }
   const affected=products.filter(p=>normalizeCategoryName(p.category)===name);
   if(affected.length){
     return msg($('categoryManagerMessage'),`Categorie ${name} bevat nog ${affected.length} product(en). Hernoem/verplaats die eerst.`,true);
   }
   if(!confirm(`Categorie ${name} verwijderen?`))return;
   saveExtraCategories(savedExtraCategories().filter(c=>c!==name));
+  localStorage.setItem('msfkHiddenCategories',JSON.stringify([...new Set([...hiddenCategoryNames(),normalizeCategoryName(name)])]));
   refreshCategorySelects();
-  msg($('categoryManagerMessage'),`Categorie ${name} verwijderd.`);
+  msg($('categoryManagerMessage'),`Categorie ${name} verwijderd uit de lijst. Producten blijven behouden.`);
 }
 
 function categories(){refreshCategorySelects();}
