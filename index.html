@@ -5006,12 +5006,13 @@ function fillFloatingCategoryMenu(){
       $('categoryFloatPanel')?.classList.add('hidden');
       const catalogTab=document.querySelector('[data-tab="catalog"]');
       if(catalogTab)catalogTab.click();
-      if($('category'))$('category').value=name;
+      if($('category'))$('category').value='all';
       if($('search'))$('search').value='';
       render();
       requestAnimationFrame(()=>{
         const safeId='cat-'+name.replace(/[^a-z0-9]/gi,'-').toLowerCase();
-        document.getElementById(safeId)?.scrollIntoView({behavior:'smooth',block:'start'});
+        const section=document.getElementById(safeId);
+        if(section){section.classList.remove('collapsed');localStorage.removeItem('msfkCategory:'+name);section.scrollIntoView({behavior:'smooth',block:'start'});}
       });
     };
     list.appendChild(b);
@@ -5273,7 +5274,20 @@ $('saveBtn').onclick=async()=>{
   }
 };
 
-$('cancelBtn').onclick=reset;$('search').oninput=render;$('category').onchange=render;$('availability').onchange=render;
+$('cancelBtn').onclick=reset;$('search').oninput=render;
+// Categorie kiezen springt naar de sectie; het filtert niet de andere categorieen weg.
+$('category').onchange=()=>{
+  const chosen=$('category').value;
+  $('category').value='all';
+  if(chosen==='all')return;
+  if($('search').value){$('search').value='';render();}
+  requestAnimationFrame(()=>{
+    const safeId='cat-'+chosen.replace(/[^a-z0-9]/gi,'-').toLowerCase();
+    const section=document.getElementById(safeId);
+    if(section){section.classList.remove('collapsed');localStorage.removeItem('msfkCategory:'+chosen);section.scrollIntoView({behavior:'smooth',block:'start'});}
+  });
+};
+$('availability').onchange=render;
 onAuthStateChanged(auth,async u=>{
   $('loading').classList.add('hidden');
 
