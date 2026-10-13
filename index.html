@@ -4019,6 +4019,11 @@ function render(){
   const categoryNames=Object.keys(groups).sort((x,y)=>{if(x.toUpperCase()==='MQS')return -1;if(y.toUpperCase()==='MQS')return 1;return x.localeCompare(y,'nl');});
   $('grid').innerHTML='';
   $('categoryJumpbar').innerHTML='';
+  // Tablet: render de eerste categorie direct en de overige stapsgewijs.
+  const progressiveTabletCatalog=document.body.classList.contains('tablet-mode');
+  const thisCatalogRender=window.__catalogRenderGeneration=(window.__catalogRenderGeneration||0)+1;
+  const deferredCategoryRenders=[];
+  let categoryRenderIndex=0;
 
   for(const category of categoryNames){
     groups[category].sort(compareProductsByNameWeight);
@@ -4063,7 +4068,7 @@ function render(){
         if(mqsExamplePhoto && !term.trim()){
           const exampleCard=document.createElement('article');
           exampleCard.className='card mqs-example-card';
-          exampleCard.innerHTML=`<div class="photo"><img src="${mqsExamplePhoto}" alt="MQS voorbeeld"></div>`;
+          exampleCard.innerHTML=`<div class="photo"><img loading="lazy" decoding="async" src="${mqsExamplePhoto}" alt="MQS voorbeeld"></div>`;
           container.appendChild(exampleCard);
         }
         const visibleGroups=mqsGrouped.filter(group=>{
@@ -4115,7 +4120,7 @@ function render(){
             </div>`;
           }).join('');
 
-          card.innerHTML=`<div class="photo">${imageProduct.photoData?`<img src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
+          card.innerHTML=`<div class="photo">${imageProduct.photoData?`<img loading="lazy" decoding="async" src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
             <div class="body">
               <div class="cat">MQS</div>
               <h2>${safe(mqsGroupDisplayName(group))}</h2>
@@ -4172,7 +4177,7 @@ function render(){
 
         const card=document.createElement('article');
         card.className='card';
-        card.innerHTML=`<div class="photo">${p.photoData?`<img src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
+        card.innerHTML=`<div class="photo">${p.photoData?`<img loading="lazy" decoding="async" src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
           <div class="body">
             <div class="cat">${safe(p.category||'OVERIG')}</div>
             <h2>${safe(productDisplayName(p))}</h2>
@@ -4217,13 +4222,39 @@ function render(){
     };
 
     section.querySelector('.category-header').onclick=()=>{
+      const pending=deferredCategoryRenders.find(entry=>entry.section===section);
+      if(pending&&!pending.rendered){pending.render();pending.rendered=true;}
       section.classList.toggle('collapsed');
       localStorage.setItem('msfkCategory:'+category,section.classList.contains('collapsed')?'closed':'open');
     };
-    section.querySelector('.category-search').oninput=e=>renderProductsInCategory(e.target.value);
+    section.querySelector('.category-search').oninput=e=>{
+      const pending=deferredCategoryRenders.find(entry=>entry.section===section);
+      if(pending)pending.rendered=true;
+      renderProductsInCategory(e.target.value);
+    };
 
-    renderProductsInCategory();
+    // Bij een tablet wordt alleen de eerste categorie meteen opgebouwd.
+    // Bij het openen van een andere categorie wordt deze direct geladen.
+    if(!progressiveTabletCatalog || categoryRenderIndex===0){
+      renderProductsInCategory();
+    }else{
+      deferredCategoryRenders.push({section,render:renderProductsInCategory});
+    }
     $('grid').appendChild(section);
+    categoryRenderIndex++;
+  }
+
+  if(progressiveTabletCatalog && deferredCategoryRenders.length){
+    let nextCategory=0;
+    const renderNextCategory=()=>{
+      if(thisCatalogRender!==window.__catalogRenderGeneration)return;
+      // Houd de interface beschikbaar terwijl de overige categorieën verschijnen.
+      if(nextCategory>=deferredCategoryRenders.length)return;
+      const entry=deferredCategoryRenders[nextCategory++];
+      if(!entry.rendered){entry.render();entry.rendered=true;}
+      setTimeout(renderNextCategory,35);
+    };
+    setTimeout(renderNextCategory,60);
   }
 
   if(!categoryNames.length)$('grid').innerHTML='<div class="empty">Geen producten gevonden.</div>';
@@ -4383,7 +4414,7 @@ function renderList(){
       for(const p of visible){
         const row=document.createElement('div');
         row.className='row';
-        row.innerHTML=`${p.photoData?`<img src="${p.photoData}">`:'<div class="placeholder" style="width:80px;height:80px">Geen foto</div>'}
+        row.innerHTML=`${p.photoData?`<img loading="lazy" decoding="async" src="${p.photoData}">`:'<div class="placeholder" style="width:80px;height:80px">Geen foto</div>'}
           <div><strong>${safe(productDisplayName(p))}</strong>
             <div class="meta">${normalizedCodes(p).each?`${String(p.category||'').trim().toUpperCase()==='MQS'?'MQS':'EACH'} Code: ${safe(normalizedCodes(p).each)}<br>`:''}${nearestExpiryDate(p)?`EXP: ${safe(formatDate(nearestExpiryDate(p)))}`:''}</div>
           </div>
