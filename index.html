@@ -136,6 +136,7 @@ window.addEventListener('unhandledrejection',function(e){
   <div id="orderPreview" class="order-preview hidden"></div>
 </div>
 
+<div id="offlineOrderStatus" class="panel" style="padding:10px 14px;margin-bottom:12px;font-weight:bold" aria-live="polite">Verbinding controleren…</div>
 <div id="catalogScanReader" class="hidden" style="max-width:520px;margin:0 auto 14px"></div>
 <button id="stopCatalogScanBtn" type="button" class="btn light hidden" style="margin-bottom:14px">Stop scanner</button>
 <div class="toolbar"><div class="scan-line"><input id="search" type="search" placeholder="Zoek product, code of barcode…"><button id="catalogScanBtn" type="button" class="btn secondary">Scan barcode</button></div><select id="category"><option value="all">Alle categorieën</option></select><select id="availability"><option value="available">Alleen beschikbaar</option><option value="all">Alles tonen</option><option value="soldout">Uitverkocht</option></select></div><div id="categoryJumpbar" class="category-jumpbar"></div><div id="grid"></div></section>
@@ -691,10 +692,10 @@ window.addEventListener('unhandledrejection',function(e){
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
 import {getAuth,onAuthStateChanged,signOut,signInWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
-import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction,getDocs,writeBatch,query,where} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction,getDocs,writeBatch,query,where} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
-const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
+const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=initializeFirestore(appFirebase,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}),$=id=>document.getElementById(id);
 let pinnedCategory='',products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
@@ -966,8 +967,18 @@ async function saveCatalogOrder(){
       await setDoc(doc(db,'sales',editingSaleId),data,{merge:true});
 
     }else{
-      await addDoc(collection(db,'sales'),{...data,createdAt:serverTimestamp()});
-
+      // Firestore zet deze schrijfopdracht duurzaam in IndexedDB; dezelfde ID blijft behouden.
+      const orderRef=doc(collection(db,'sales'));
+      const write=setDoc(orderRef,{...data,createdAt:serverTimestamp()});
+      if(!navigator.onLine){
+        // Niet wachten op een serverbevestiging zolang internet ontbreekt.
+        // Firebase verstuurt deze lokale schrijfactie zodra de verbinding herstelt.
+        write.catch(e=>msg($('catalogOrderMessage'),'Offline bestelling kon niet worden gesynchroniseerd: '+e.message,true));
+        clearCatalogOrder();
+        msg($('catalogOrderMessage'),'Bestelling lokaal opgeslagen — wacht op internet. Sluit de browser niet voordat synchronisatie is bevestigd.');
+        return;
+      }
+      await write;
     }
     try{rememberCustomerName(customerName);}catch(e){console.warn('Klantnaam bewaren mislukt',e);}
     // Alleen na succesvolle Firebase-opslag: winkelmand, invoervelden en lokaal concept wissen.
@@ -3116,6 +3127,21 @@ function startMQSExampleListener(){
   },e=>console.warn('MQS voorbeeldfoto laden mislukt',e));
 }
 
+function updateOfflineStatus(pending){
+ const el=$('offlineOrderStatus');if(!el)return;
+ const online=navigator.onLine;
+ el.textContent=online?(pending?'Internet beschikbaar — bestellingen worden gesynchroniseerd…':'Online — bestellingen worden automatisch verzonden'):'Offline — bestellingen blijven op deze tablet bewaard tot internet terugkomt';
+ el.style.background=online?'#ecfdf5':'#fff7ed';
+}
+window.addEventListener('online',()=>updateOfflineStatus(true));
+window.addEventListener('offline',()=>updateOfflineStatus(true));
+// Een opgeslagen Firebase-document-ID wordt hergebruikt; daardoor geen tweede order bij opnieuw verzenden.
+function watchOfflineOrders(){
+ onSnapshot(collection(db,'sales'),{includeMetadataChanges:true},snap=>{
+   const pending=snap.docs.some(d=>d.metadata.hasPendingWrites);
+   updateOfflineStatus(pending);
+ },e=>console.warn('Synchronisatiestatus:',e));
+}
 function startCatalogListener(){
   onSnapshot(
     collection(db,'catalogProducts'),
@@ -5357,6 +5383,7 @@ onAuthStateChanged(auth,async u=>{
   restoreCatalogDraft();
 
   startCatalogListener();
+  watchOfflineOrders();
   startMQSExampleListener();
   if(currentRole==='owner')startOwnerListeners();
 });
@@ -5402,5 +5429,10 @@ document.getElementById('saleCreditOption')?.addEventListener('change',()=>updat
   <button id="catalogHomeBtn" class="floating-btn" type="button" title="Terug naar Catalogus" aria-label="Terug naar Catalogus">🏠</button>
   <button id="scrollTopBtn" class="floating-btn top-hidden" type="button" title="Naar boven" aria-label="Naar boven">↑</button>
 </div>
+<script>
+if('serviceWorker' in navigator && location.protocol==='https:'){
+ navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Offline app-cache:',e));
+}
+</script>
 </body>
 </html>
