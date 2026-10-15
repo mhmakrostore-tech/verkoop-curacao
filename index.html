@@ -4103,7 +4103,7 @@ function render(){
   const nextGrid=document.createDocumentFragment();
   const nextJumpbar=document.createDocumentFragment();
   // Tablet: render de eerste categorie direct en de overige stapsgewijs.
-  const progressiveTabletCatalog=false; // Alle categorieen direct opbouwen, ook op tablet.
+  const progressiveTabletCatalog=true; // Categorieknoppen eerst tonen; productkaarten daarna voorbereiden.
   const thisCatalogRender=window.__catalogRenderGeneration=(window.__catalogRenderGeneration||0)+1;
   const deferredCategoryRenders=[];
   let categoryRenderIndex=0;
@@ -4318,27 +4318,22 @@ function render(){
 
     // Bij een tablet wordt alleen de eerste categorie meteen opgebouwd.
     // Bij het openen van een andere categorie wordt deze direct geladen.
-    if(!progressiveTabletCatalog || categoryRenderIndex===0){
-      renderProductsInCategory();
-    }else{
-      deferredCategoryRenders.push({section,render:renderProductsInCategory});
-    }
+    deferredCategoryRenders.push({section,render:renderProductsInCategory,rendered:false});
     nextGrid.appendChild(section);
     categoryRenderIndex++;
   }
 
-  if(progressiveTabletCatalog && deferredCategoryRenders.length){
-    let nextCategory=0;
-    const renderNextCategory=()=>{
-      if(thisCatalogRender!==window.__catalogRenderGeneration)return;
-      // Houd de interface beschikbaar terwijl de overige categorieën verschijnen.
-      if(nextCategory>=deferredCategoryRenders.length)return;
-      const entry=deferredCategoryRenders[nextCategory++];
-      if(!entry.rendered){entry.render();entry.rendered=true;}
-      setTimeout(renderNextCategory,35);
-    };
-    setTimeout(renderNextCategory,60);
-  }
+  // De categorienamen zijn al opgebouwd. De productkaarten worden pas
+  // na het zichtbaar maken van de categorieknoppen op de achtergrond voorbereid.
+  // Een aangeklikte categorie wordt altijd onmiddellijk voorrang gegeven.
+  const prepareCategories=()=>{
+    if(thisCatalogRender!==window.__catalogRenderGeneration)return;
+    const next=deferredCategoryRenders.find(entry=>!entry.rendered);
+    if(!next)return;
+    next.rendered=true;
+    next.render();
+    setTimeout(prepareCategories,25);
+  };
 
   if(!categoryNames.length){
     const empty=document.createElement('div');
@@ -4349,9 +4344,10 @@ function render(){
   // Eén wissel voorkomt een lege catalogus tijdens een Firebase-update.
   $('grid').replaceChildren(nextGrid);
   $('categoryJumpbar').replaceChildren(nextJumpbar);
+  setTimeout(prepareCategories,0);
 
   updateCatalogCart();
-  renderList();
+  if(currentRole==='owner')setTimeout(()=>{if(thisCatalogRender===window.__catalogRenderGeneration)renderList();},0);
   if(currentRole==='sales')applyRoleUI();
 }
 let adminCatalogFilter='all';
