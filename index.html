@@ -84,6 +84,7 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 .mqs-example-card .photo img{width:100%;height:100%;object-fit:contain;background:#fff}
 .mqs-example-admin{margin:0 0 16px;padding:14px;border:1px dashed var(--border);border-radius:14px;background:#fff}
 .mqs-example-admin img{width:150px;max-height:190px;object-fit:contain;border-radius:12px;display:block;margin-top:10px}
+.toppers-example-text{padding:12px 10px;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45;font-weight:600;color:#1f2937}
 </style>
 
 <style>html,body{scroll-behavior:auto!important}</style>
@@ -179,6 +180,9 @@ window.addEventListener('unhandledrejection',function(e){
       <button id="saveToppersExamplePhotoBtn" type="button" class="btn secondary">Voorbeeldfoto opslaan</button>
       <button id="deleteToppersExamplePhotoBtn" type="button" class="btn light">Voorbeeldfoto verwijderen</button>
     </div>
+    <label for="toppersExampleText">Tekst onder de TOPPERS-voorbeeldfoto</label>
+    <textarea id="toppersExampleText" rows="4" placeholder="Schrijf hier de tekst die onder de foto moet verschijnen..."></textarea>
+    <button id="saveToppersExampleTextBtn" type="button" class="btn secondary" style="margin-top:10px">Tekst opslaan</button>
     <div id="toppersExamplePhotoMsg" class="message"></div>
   </div>
 <div id="mqsBulkBox" class="unit-box hidden">
@@ -709,6 +713,7 @@ import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,co
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=initializeFirestore(appFirebase,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}),$=id=>document.getElementById(id);
 let pinnedCategory='',products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',toppersExamplePhoto='',toppersExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
+let toppersExampleText='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
 
@@ -3080,6 +3085,8 @@ async function createOrderPickAccount(){
 function refreshToppersExampleAdmin(){
   const img=$('toppersExamplePhotoPreview');
   if(!img)return;
+  const textField=$('toppersExampleText');
+  if(textField && document.activeElement!==textField)textField.value=toppersExampleText;
   const src=toppersExamplePhotoDraft||toppersExamplePhoto;
   if(src){img.src=src;img.classList.remove('hidden');}
   else{img.removeAttribute('src');img.classList.add('hidden');}
@@ -3100,6 +3107,16 @@ async function saveToppersExamplePhoto(){
     refreshToppersExampleAdmin();render();
     msg($('toppersExamplePhotoMsg'),'TOPPERS voorbeeldfoto opgeslagen. Ook zichtbaar op de tablet.');
   }catch(e){msg($('toppersExamplePhotoMsg'),'Opslaan mislukt: '+e.message,true);}
+}
+async function saveToppersExampleText(){
+  if(currentRole!=='owner')return;
+  const value=String($('toppersExampleText')?.value||'').trim();
+  try{
+    await setDoc(doc(db,'catalogProducts','toppersCatalogSample'),{isToppersExample:true,category:'TOPPERS_SAMPLE',internalOnly:true,available:false,exampleText:value,updatedAt:serverTimestamp()},{merge:true});
+    toppersExampleText=value;
+    render();
+    msg($('toppersExamplePhotoMsg'),value?'Tekst opgeslagen. Ook zichtbaar op de tablet.':'Tekst verwijderd.');
+  }catch(e){msg($('toppersExamplePhotoMsg'),'Tekst opslaan mislukt: '+e.message,true);}
 }
 async function deleteToppersExamplePhoto(){
   if(currentRole!=='owner')return;
@@ -3203,6 +3220,7 @@ function startCatalogListener(){
       }
       const toppersSampleDoc=allCatalogDocs.find(p=>p.id==='toppersCatalogSample'||p.isToppersExample===true);
       toppersExamplePhoto=String(toppersSampleDoc?.photoData||'');
+      toppersExampleText=String(toppersSampleDoc?.exampleText||'');
       refreshToppersExampleAdmin();
       products=allCatalogDocs.filter(p=>p.id!=='mqsCatalogSample'&&p.isMQSExample!==true&&p.id!=='toppersCatalogSample'&&p.isToppersExample!==true&&p.id!=='categoryDisplaySettings'&&p.isCategorySettings!==true);
 
@@ -4226,7 +4244,13 @@ function render(){
         exampleCard.className='card mqs-example-card';
         const photo=document.createElement('div');photo.className='photo';
         const img=document.createElement('img');img.loading='lazy';img.decoding='async';img.alt='TOPPERS voorbeeld';img.src=toppersExamplePhoto;
-        photo.appendChild(img);exampleCard.appendChild(photo);container.appendChild(exampleCard);
+        photo.appendChild(img);exampleCard.appendChild(photo);
+        if(toppersExampleText.trim()){
+          const note=document.createElement('div');note.className='toppers-example-text';
+          note.textContent=toppersExampleText;
+          exampleCard.appendChild(note);
+        }
+        container.appendChild(exampleCard);
       }
       if(isMQSCategoryView){
         // Vaste voorbeeldfoto staat altijd als eerste in MQS, zonder naam/prijs/code/bestelling.
@@ -5189,6 +5213,7 @@ if($('toppersExamplePhotoInput'))$('toppersExamplePhotoInput').onchange=async()=
   refreshToppersExampleAdmin();
 };
 if($('saveToppersExamplePhotoBtn'))$('saveToppersExamplePhotoBtn').onclick=saveToppersExamplePhoto;
+if($('saveToppersExampleTextBtn'))$('saveToppersExampleTextBtn').onclick=saveToppersExampleText;
 if($('deleteToppersExamplePhotoBtn'))$('deleteToppersExamplePhotoBtn').onclick=deleteToppersExamplePhoto;
 if($('cat'))$('cat').addEventListener('change',()=>refreshToppersExampleVisibility());
 // Categorie kan ook programmatisch wijzigen wanneer een product wordt bewerkt.
