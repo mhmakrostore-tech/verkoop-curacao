@@ -4590,7 +4590,7 @@ function edit(id){
     $('formTitle').textContent='MAGAZIJN product aanpassen';
     $('cancelBtn').classList.remove('hidden');
     document.querySelector('[data-tab="add"]').click();
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'instant'});
     return;
   }
   if(cat==='MAKRO'){
@@ -4610,7 +4610,7 @@ function edit(id){
     $('formTitle').textContent='MAKRO product aanpassen';
     $('cancelBtn').classList.remove('hidden');
     document.querySelector('[data-tab="add"]').click();
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'instant'});
     return;
   }
   if(cat==='MQS'){
@@ -4626,7 +4626,7 @@ function edit(id){
     $('formTitle').textContent='MQS product aanpassen';
     $('cancelBtn').classList.remove('hidden');
     document.querySelector('[data-tab="add"]').click();
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'instant'});
     return;
   }
   $('editId').value=id;setProductFormMode(true);
@@ -4638,7 +4638,7 @@ function edit(id){
   $('barcode').value=p.barcode||'';$('notes').value=p.notes||'';$('available').checked=p.available!==false;$('internalOnly').checked=p.internalOnly===true;
   photoData=p.photoData||'';if(photoData){$('preview').src=photoData;$('preview').classList.remove('hidden')}else $('preview').classList.add('hidden');
   updateMQSWeightUI();
-  $('formTitle').textContent='Product aanpassen';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'smooth'});
+  $('formTitle').textContent='Product aanpassen';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'instant'});
 }
 function duplicateProduct(id){
   if(currentRole==='sales')return;
