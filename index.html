@@ -695,7 +695,7 @@ import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,se
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
-let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
+let pinnedCategory='',products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
 
@@ -3123,12 +3123,14 @@ function startCatalogListener(){
       // Lees de MQS SAMPLE uit dezelfde catalogus-snapshot. Zo zien Beheerder en Verkoop
       // exact dezelfde foto, zonder afhankelijk te zijn van een aparte publicSettings-read.
       const allCatalogDocs=s.docs.map(d=>({id:d.id,...d.data()}));
+      const categorySettings=allCatalogDocs.find(p=>p.id==='categoryDisplaySettings');
+      pinnedCategory=normalizeCategoryName(categorySettings?.firstCategory||'');
       const sampleDoc=allCatalogDocs.find(p=>p.id==='mqsCatalogSample'||p.isMQSExample===true);
       if(sampleDoc && sampleDoc.photoData){
         mqsExamplePhoto=String(sampleDoc.photoData||'');
         refreshMQSExampleAdmin();
       }
-      products=allCatalogDocs.filter(p=>p.id!=='mqsCatalogSample'&&p.isMQSExample!==true);
+      products=allCatalogDocs.filter(p=>p.id!=='mqsCatalogSample'&&p.isMQSExample!==true&&p.id!=='categoryDisplaySettings'&&p.isCategorySettings!==true);
 
       if(currentRole==='owner'){
         migrateAllToppersToUppercase().catch(e=>console.warn('TOPPERS migratie overgeslagen:',e));
@@ -3802,6 +3804,28 @@ async function migrateAllToppersToUppercase(){
   saveExtraCategories(cleaned);
 }
 
+function categorySort(a,b){
+  const x=normalizeCategoryName(a),y=normalizeCategoryName(b);
+  if(pinnedCategory){
+    if(x===pinnedCategory && y!==pinnedCategory)return -1;
+    if(y===pinnedCategory && x!==pinnedCategory)return 1;
+  }
+  if(x==='MQS' && y!=='MQS')return -1;
+  if(y==='MQS' && x!=='MQS')return 1;
+  return x.localeCompare(y,'nl',{sensitivity:'base'});
+}
+async function setFirstCategory(name){
+  if(currentRole!=='owner')return;
+  const selected=normalizeCategoryName(name);
+  try{
+    await setDoc(doc(db,'catalogProducts','categoryDisplaySettings'),{
+      isCategorySettings:true,firstCategory:selected,updatedAt:serverTimestamp()
+    },{merge:true});
+    msg($('categoryManagerMessage'),selected?`${selected} staat nu als eerste in de catalogus.`:'Normale volgorde hersteld.');
+  }catch(e){
+    msg($('categoryManagerMessage'),'Volgorde opslaan mislukt: '+e.message,true);
+  }
+}
 function normalizeCategoryName(name){
   return String(name||'').trim().replace(/\s+/g,' ').toUpperCase();
 }
@@ -3856,15 +3880,23 @@ function renderCategoryManager(){
   if(!$('categoryManagerList'))return;
   const names=allCategoryNames();
   $('categoryManagerList').innerHTML='';
+  const reset=document.createElement('button');
+  reset.type='button';reset.className='btn secondary';
+  reset.textContent='Normale volgorde herstellen';
+  reset.style.margin='10px 0';
+  reset.onclick=()=>setFirstCategory('');
+  $('categoryManagerList').appendChild(reset);
+
   for(const name of names){
     const row=document.createElement('div');
     row.className='category-manager-list-row';
     const count=products.filter(p=>normalizeCategoryName(p.category)===name).length;
     row.innerHTML=`<div class="cat-name"><strong>${safe(name)}</strong> <span class="meta">(${count} producten)</span></div>
-      <button type="button" class="btn light rename-category" data-name="${safe(name)}">Hernoemen</button>
+      <button type="button" class="btn light first-category" data-name="${safe(name)}">${pinnedCategory===name?"★ Staat eerste":"↑ Zet eerste"}</button>\n      <button type="button" class="btn light rename-category" data-name="${safe(name)}">Hernoemen</button>
       <button type="button" class="btn light delete-category" data-name="${safe(name)}">Verwijderen</button>`;
     $('categoryManagerList').appendChild(row);
   }
+  $('categoryManagerList').querySelectorAll('.first-category').forEach(btn=>btn.onclick=()=>setFirstCategory(btn.dataset.name));
   $('categoryManagerList').querySelectorAll('.rename-category').forEach(btn=>btn.onclick=()=>renameCategory(btn.dataset.name));
   $('categoryManagerList').querySelectorAll('.delete-category').forEach(btn=>btn.onclick=()=>deleteCategory(btn.dataset.name));
 }
@@ -3899,6 +3931,7 @@ async function deleteCategory(name){
     return msg($('categoryManagerMessage'),`Categorie ${name} bevat nog ${affected.length} product(en). Hernoem/verplaats die eerst.`,true);
   }
   if(!confirm(`Categorie ${name} verwijderen?`))return;
+  if(pinnedCategory===normalizeCategoryName(name))await setFirstCategory('');
   saveExtraCategories(savedExtraCategories().filter(c=>c!==name));
   localStorage.setItem('msfkHiddenCategories',JSON.stringify([...new Set([...hiddenCategoryNames(),normalizeCategoryName(name)])]));
   refreshCategorySelects();
@@ -4065,7 +4098,7 @@ function render(){
     (groups[category]??=[]).push(p);
   }
 
-  const categoryNames=Object.keys(groups).sort((x,y)=>{if(x.toUpperCase()==='MQS')return -1;if(y.toUpperCase()==='MQS')return 1;return x.localeCompare(y,'nl');});
+  const categoryNames=Object.keys(groups).sort(categorySort);
   // Bouw eerst buiten beeld; laat de huidige catalogus staan tot de nieuwe klaar is.
   const nextGrid=document.createDocumentFragment();
   const nextJumpbar=document.createDocumentFragment();
@@ -4355,11 +4388,7 @@ function renderList(){
     (byCategory[category]??=[]).push(p);
   }
 
-  const categoryNames=Object.keys(byCategory).sort((a,b)=>{
-    if(a.toUpperCase()==='MQS')return -1;
-    if(b.toUpperCase()==='MQS')return 1;
-    return a.localeCompare(b,'nl',{sensitivity:'base'});
-  });
+  const categoryNames=Object.keys(byCategory).sort(categorySort);
 
   for(const category of categoryNames){
     const section=document.createElement('section');
