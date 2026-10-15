@@ -169,6 +169,17 @@ window.addEventListener('unhandledrejection',function(e){
 </div>
 
 
+  <div id="toppersExampleAdmin" class="mqs-example-admin hidden">
+    <h3 style="margin-top:0">TOPPERS voorbeeldfoto in Catalogus</h3>
+    <p class="meta">Deze foto staat als eerste in TOPPERS, ook op de tablet. Zonder naam, prijs of bestelknop.</p>
+    <input id="toppersExamplePhotoInput" type="file" accept="image/*">
+    <img id="toppersExamplePhotoPreview" class="hidden" alt="TOPPERS voorbeeldfoto">
+    <div class="button-row" style="margin-top:10px">
+      <button id="saveToppersExamplePhotoBtn" type="button" class="btn secondary">Voorbeeldfoto opslaan</button>
+      <button id="deleteToppersExamplePhotoBtn" type="button" class="btn light">Voorbeeldfoto verwijderen</button>
+    </div>
+    <div id="toppersExamplePhotoMsg" class="message"></div>
+  </div>
 <div id="mqsBulkBox" class="unit-box hidden">
   <div class="mqs-example-admin">
     <h3 style="margin-top:0">MQS voorbeeldfoto in Catalogus</h3>
@@ -696,7 +707,7 @@ import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,co
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=initializeFirestore(appFirebase,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}),$=id=>document.getElementById(id);
-let pinnedCategory='',products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
+let pinnedCategory='',products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',toppersExamplePhoto='',toppersExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
 
@@ -3065,6 +3076,39 @@ async function createOrderPickAccount(){
   }
 }
 
+function refreshToppersExampleAdmin(){
+  const img=$('toppersExamplePhotoPreview');
+  if(!img)return;
+  const src=toppersExamplePhotoDraft||toppersExamplePhoto;
+  if(src){img.src=src;img.classList.remove('hidden');}
+  else{img.removeAttribute('src');img.classList.add('hidden');}
+}
+function refreshToppersExampleVisibility(){
+  const panel=$('toppersExampleAdmin');
+  if(!panel)return;
+  const cat=String($('cat')?.value||'').trim().toUpperCase();
+  panel.classList.toggle('hidden',currentRole!=='owner'||cat!=='TOPPERS');
+}
+async function saveToppersExamplePhoto(){
+  if(currentRole!=='owner')return;
+  const value=toppersExamplePhotoDraft||toppersExamplePhoto;
+  if(!value)return msg($('toppersExamplePhotoMsg'),'Kies eerst een foto.',true);
+  try{
+    await setDoc(doc(db,'catalogProducts','toppersCatalogSample'),{isToppersExample:true,category:'TOPPERS_SAMPLE',internalOnly:true,available:false,photoData:value,updatedAt:serverTimestamp()},{merge:true});
+    toppersExamplePhoto=value;toppersExamplePhotoDraft='';
+    refreshToppersExampleAdmin();render();
+    msg($('toppersExamplePhotoMsg'),'TOPPERS voorbeeldfoto opgeslagen. Ook zichtbaar op de tablet.');
+  }catch(e){msg($('toppersExamplePhotoMsg'),'Opslaan mislukt: '+e.message,true);}
+}
+async function deleteToppersExamplePhoto(){
+  if(currentRole!=='owner')return;
+  if(!confirm('TOPPERS voorbeeldfoto verwijderen?'))return;
+  try{
+    await setDoc(doc(db,'catalogProducts','toppersCatalogSample'),{isToppersExample:true,category:'TOPPERS_SAMPLE',internalOnly:true,available:false,photoData:'',updatedAt:serverTimestamp()},{merge:true});
+    toppersExamplePhoto='';toppersExamplePhotoDraft='';refreshToppersExampleAdmin();render();
+    msg($('toppersExamplePhotoMsg'),'TOPPERS voorbeeldfoto verwijderd.');
+  }catch(e){msg($('toppersExamplePhotoMsg'),'Verwijderen mislukt: '+e.message,true);}
+}
 function refreshMQSExampleAdmin(){
   const img=$('mqsExamplePhotoPreview');
   if(!img)return;
@@ -3156,7 +3200,10 @@ function startCatalogListener(){
         mqsExamplePhoto=String(sampleDoc.photoData||'');
         refreshMQSExampleAdmin();
       }
-      products=allCatalogDocs.filter(p=>p.id!=='mqsCatalogSample'&&p.isMQSExample!==true&&p.id!=='categoryDisplaySettings'&&p.isCategorySettings!==true);
+      const toppersSampleDoc=allCatalogDocs.find(p=>p.id==='toppersCatalogSample'||p.isToppersExample===true);
+      toppersExamplePhoto=String(toppersSampleDoc?.photoData||'');
+      refreshToppersExampleAdmin();
+      products=allCatalogDocs.filter(p=>p.id!=='mqsCatalogSample'&&p.isMQSExample!==true&&p.id!=='toppersCatalogSample'&&p.isToppersExample!==true&&p.id!=='categoryDisplaySettings'&&p.isCategorySettings!==true);
 
       if(currentRole==='owner'){
         migrateAllToppersToUppercase().catch(e=>console.warn('TOPPERS migratie overgeslagen:',e));
@@ -4110,6 +4157,7 @@ function addAdminAvailabilityControls(){
 }
 
 function render(){
+  refreshToppersExampleVisibility();
   const searchEl=$('search'), categoryEl=$('category'), availabilityEl=$('availability');
   if(!searchEl||!categoryEl||!availabilityEl||!$('grid')||!$('categoryJumpbar'))return;
   const q=String(searchEl.value||'').toLowerCase(),selectedCategory=String(categoryEl.value||'all'),a=String(availabilityEl.value||'all');
@@ -4172,6 +4220,13 @@ function render(){
     const renderProductsInCategory=(term='')=>{
       container.innerHTML='';
 
+      if(category.toUpperCase()==='TOPPERS' && toppersExamplePhoto && !term.trim()){
+        const exampleCard=document.createElement('article');
+        exampleCard.className='card mqs-example-card';
+        const photo=document.createElement('div');photo.className='photo';
+        const img=document.createElement('img');img.loading='lazy';img.decoding='async';img.alt='TOPPERS voorbeeld';img.src=toppersExamplePhoto;
+        photo.appendChild(img);exampleCard.appendChild(photo);container.appendChild(exampleCard);
+      }
       if(isMQSCategoryView){
         // Vaste voorbeeldfoto staat altijd als eerste in MQS, zonder naam/prijs/code/bestelling.
         if(mqsExamplePhoto && !term.trim()){
@@ -5126,6 +5181,17 @@ $('photoInput').onchange=async()=>{
   $('preview').src=photoData;
   $('preview').classList.remove('hidden');
 };
+if($('toppersExamplePhotoInput'))$('toppersExamplePhotoInput').onchange=async()=>{
+  const f=$('toppersExamplePhotoInput').files?.[0];
+  if(!f)return;
+  toppersExamplePhotoDraft=await imageData(f);
+  refreshToppersExampleAdmin();
+};
+if($('saveToppersExamplePhotoBtn'))$('saveToppersExamplePhotoBtn').onclick=saveToppersExamplePhoto;
+if($('deleteToppersExamplePhotoBtn'))$('deleteToppersExamplePhotoBtn').onclick=deleteToppersExamplePhoto;
+if($('cat'))$('cat').addEventListener('change',()=>refreshToppersExampleVisibility());
+// Categorie kan ook programmatisch wijzigen wanneer een product wordt bewerkt.
+new MutationObserver(refreshToppersExampleVisibility).observe($('add'),{attributes:true,attributeFilter:['class']});
 if($('mqsExamplePhotoInput'))$('mqsExamplePhotoInput').onchange=async()=>{
   const f=$('mqsExamplePhotoInput').files?.[0];
   if(!f)return;
