@@ -4452,7 +4452,15 @@ function render(){
   // Eén wissel voorkomt een lege catalogus tijdens een Firebase-update.
   $('grid').replaceChildren(nextGrid);
   $('categoryJumpbar').replaceChildren(nextJumpbar);
-  setTimeout(prepareCategories,0);
+  if(selectedCategory!=='all'){
+    for(const entry of deferredCategoryRenders){
+      entry.rendered=true;
+      entry.render();
+      entry.section.classList.remove('collapsed');
+    }
+  }else{
+    setTimeout(prepareCategories,0);
+  }
 
   updateCatalogCart();
   if(currentRole==='owner')setTimeout(()=>{if(thisCatalogRender===window.__catalogRenderGeneration)renderList();},0);
@@ -5177,15 +5185,11 @@ function fillFloatingCategoryMenu(){
     b.onclick=()=>{
       $('categoryFloatPanel')?.classList.add('hidden');
       const catalogTab=document.querySelector('[data-tab="catalog"]');
-      if(catalogTab)catalogTab.click();
-      if($('category'))$('category').value='all';
+      if(catalogTab && !document.getElementById('catalog')?.classList.contains('active'))catalogTab.click();
       if($('search'))$('search').value='';
+      if($('category'))$('category').value=name;
       render();
-      requestAnimationFrame(()=>{
-        const safeId='cat-'+name.replace(/[^a-z0-9]/gi,'-').toLowerCase();
-        const section=document.getElementById(safeId);
-        if(section){section.classList.remove('collapsed');localStorage.removeItem('msfkCategory:'+name);section.scrollIntoView({behavior:'instant',block:'start'});}
-      });
+      window.scrollTo({top:0,behavior:'instant'});
     };
     list.appendChild(b);
   }
@@ -5460,17 +5464,10 @@ $('saveBtn').onclick=async()=>{
 };
 
 $('cancelBtn').onclick=reset;$('search').oninput=render;
-// Categorie kiezen springt naar de sectie; het filtert niet de andere categorieen weg.
+// Categorie kiezen toont uitsluitend de gekozen categorie, zonder tussenweergave.
 $('category').onchange=()=>{
-  const chosen=$('category').value;
-  $('category').value='all';
-  if(chosen==='all')return;
-  if($('search').value){$('search').value='';render();}
-  requestAnimationFrame(()=>{
-    const safeId='cat-'+chosen.replace(/[^a-z0-9]/gi,'-').toLowerCase();
-    const section=document.getElementById(safeId);
-    if(section){section.classList.remove('collapsed');localStorage.removeItem('msfkCategory:'+chosen);section.scrollIntoView({behavior:'instant',block:'start'});}
-  });
+  if($('search'))$('search').value='';
+  render();
 };
 $('availability').onchange=render;
 onAuthStateChanged(auth,async u=>{
