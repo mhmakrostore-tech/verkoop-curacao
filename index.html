@@ -1193,6 +1193,8 @@ function loadMQSBulkValues(){
   const map={};
   const wanted=mqsBaseName($('mqsProductName')?.value||'').toLowerCase();
   const matched=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&wanted&&mqsBaseName(p.name).toLowerCase()===wanted);
+  // Een nieuwe MQS-naam mag reeds ingevulde prijzen en codes niet leegmaken.
+  if(!matched.length)return;
   matched.forEach(p=>{const key=mqsFormatKey(p);if(key)map[key]=p;});
 
   const fill=(key,codeId,priceId,crtCodeId,crtPriceId,crtId)=>{
@@ -5007,7 +5009,17 @@ $('warehouseScanBtn').onclick=startWarehouseScanner;$('warehouseStopScanBtn').on
 $('makroScanBtn').onclick=startMakroScanner;$('makroStopScanBtn').onclick=stopMakroScanner;
 $('catalogScanBtn').onclick=startCatalogScanner;$('stopCatalogScanBtn').onclick=stopCatalogScanner;
 
-$('mqsProductName').addEventListener('change',loadMQSBulkValues);
+$('mqsProductName').addEventListener('change',()=>{
+  // Automatisch bestaande MQS-gegevens ophalen mag alleen als er nog geen
+  // handmatig ingevoerde code/prijs/EXP staat. Bewerken laadt apart gegevens.
+  const enteredIds=['mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs',
+    'mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500',
+    'mqsCode1kg','mqsPrice1kg','mqsCrtCode1kg','mqsCrtPrice1kg','mqsCrt1kg',
+    'mqsCode2kg','mqsPrice2kg','mqsCrtCode2kg','mqsCrtPrice2kg','mqsCrt2kg',
+    'mqsExpiry1','mqsExpiry2'];
+  if(enteredIds.some(id=>$(id)&&String($(id).value).trim()!==''))return;
+  loadMQSBulkValues();
+});
 $('mqsProductName').addEventListener('input',()=>{
   const wanted=String($('mqsProductName').value||'').trim().toLowerCase();
   const exists=products.some(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&String(p.name||'').trim().toLowerCase()===wanted);
