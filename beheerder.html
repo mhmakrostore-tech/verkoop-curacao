@@ -76,7 +76,7 @@ window.addEventListener('unhandledrejection',function(e){
 <section id="login" class="login hidden"><div class="login-card"><h1>Verkoop Curaçao</h1><p>Log in met het toegewezen account.</p><label>E-mailadres</label><input id="loginEmail" type="email" autocomplete="username" placeholder="naam@curacao.com"><label>Wachtwoord</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Wachtwoord"><button id="loginBtn" class="btn primary" type="button" style="margin-top:14px;width:100%">Inloggen</button><div id="loginMsg" class="message"></div></div></section>
 <div id="app" class="hidden">
 <header class="top"><div><h1>Verkoop Curaçao</h1><small id="email"></small></div><button id="logoutBtn" class="btn ghost">Uitloggen</button></header>
-<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="discountReturns">Kortingen & Retouren</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
+<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="discountReturns">Kortingen, Retouren & Korte Datum</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
 <main>
 <section id="catalog" class="tab active">
 
@@ -464,14 +464,14 @@ window.addEventListener('unhandledrejection',function(e){
 
 
 <section id="discountReturns" class="tab">
-<div class="panel"><h2>Kortingen & Retouren</h2><p class="meta">Registratie per bedrijf. Voorraad, verkoop en facturen worden niet aangepast.</p>
-<label>Bedrijf / klant</label><input id="drCompany" list="drCompanyOptions" autocomplete="off" placeholder="Zoek of typ bedrijfsnaam"><datalist id="drCompanyOptions"></datalist>
-<h3>Historie van dit bedrijf</h3><input id="drCompanySearch" type="search" placeholder="Zoek product, code of invoicenummer"><div id="drCompanyHistory"></div></div>
-<div class="panel"><h3>Korting of retour registreren</h3><div class="grid2"><div><label>Soort</label><select id="drType"><option value="korting">Korting</option><option value="retour">Retour / teruggenomen</option></select></div><div><label>Datum</label><input id="drDate" type="date"></div></div>
+<div class="panel"><h2>Kortingen, Retouren & Korte Datum</h2><p class="meta">Registratie per bedrijf. Voorraad, verkoop en facturen worden niet aangepast.</p>
+<label>Klantnummer</label><input id="drCustomerNumber" placeholder="Klantnummer (optioneel)"><label>Bedrijf / klantnaam</label><input id="drCompany" list="drCompanyOptions" autocomplete="off" placeholder="Zoek of typ bedrijfsnaam"><datalist id="drCompanyOptions"></datalist>
+<h3>Historie van dit bedrijf</h3><input id="drCompanySearch" type="search" placeholder="Zoek product, code, factuur of EXP-datum"><div id="drCompanyHistory"></div></div>
+<div class="panel"><h3>Korting of retour registreren</h3><div class="grid2"><div><label>Soort</label><select id="drType"><option value="korting">Korting</option><option value="retour">Retour / teruggenomen</option><option value="korte_datum">Korte Datum</option></select></div><div><label>Datum</label><input id="drDate" type="date"></div></div>
 <label>Product zoeken (naam of code)</label><input id="drProductSearch" autocomplete="off" placeholder="Typ productnaam of code"><div id="drProductResults" class="dr-results"></div><p id="drSelectedProduct" class="meta">Nog geen product gekozen</p>
 <div class="grid2"><div><label>Aantal</label><input id="drQty" type="number" min="0.001" step="any" value="1"></div><div><label>Eenheid</label><select id="drUnit"><option>EACH</option><option>P12</option><option>CRT</option><option>PAK</option><option>KG</option></select></div><div><label>Invoicenummer</label><input id="drInvoice" placeholder="Optioneel"></div><div><label>Normale prijs CG</label><input id="drNormalPrice" type="number" min="0" step=".01" placeholder="Bij korting"></div><div><label>Prijs na korting CG</label><input id="drDiscountPrice" type="number" min="0" step=".01" placeholder="Bij korting"></div></div>
-<label>Reden / opmerking</label><textarea id="drNote" rows="2"></textarea><button id="drSave" type="button" class="btn primary" style="margin-top:12px">Registratie opslaan</button><div id="drMessage" class="message"></div></div>
-<div class="panel"><h3>Alle kortingen & retouren zoeken</h3><input id="drSearchAll" type="search" placeholder="Zoek bedrijf, product, code of invoice"><div id="drAllRecords"></div></div>
+<div class="grid2"><div><label>Leverdatum</label><input id="drDeliveryDate" type="date"></div><div><label>EXP-datum</label><input id="drExpiry" type="text" placeholder="DD-MM-JJJJ"></div></div><label>Reden / opmerking</label><textarea id="drNote" rows="2"></textarea><button id="drSave" type="button" class="btn primary" style="margin-top:12px">Registratie opslaan</button><div id="drMessage" class="message"></div></div>
+<div class="panel"><h3>Alle kortingen & retouren zoeken</h3><input id="drSearchAll" type="search" placeholder="Zoek klantnummer, klantnaam, product, code, factuur of EXP"><div id="drAllRecords"></div></div>
 </section>
 <section id="pick" class="tab">
   <div class="panel">
@@ -2950,14 +2950,38 @@ async function addGiveawayEntry(){
 
 function drNames(){return [...new Set([...customers.map(c=>c.name||c.customerName||c.companyName||''),...sales.map(x=>x.customerName||'')].map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'nl'));}
 function drCompanyOptions(){$('drCompanyOptions').innerHTML=drNames().map(n=>`<option value="${safe(n)}"></option>`).join('');}
-function drCard(e){return `<div class="history-card"><strong>${safe(e.type==='korting'?'KORTING':'RETOUR')} — ${safe(e.productName)}</strong><div>${safe(e.date)} · Bedrijf: <b>${safe(e.company)}</b></div><div>Code: ${safe(e.productCode||'-')} · ${safe(e.qty)} ${safe(e.unit)} · Invoice: ${safe(e.invoice||'-')}</div>${e.type==='korting'?`<div>Normaal CG ${safe(e.normalPrice||'-')} → Korting CG ${safe(e.discountPrice||'-')}</div>`:''}${e.note?`<div>Opmerking: ${safe(e.note)}</div>`:''}<button type="button" class="btn light drDelete" data-id="${safe(e.id)}" style="margin-top:8px">Verwijderen</button></div>`;}
+function drCard(e){
+ const returned=!!e.returnReceived,credited=!!e.creditMade,done=returned||credited;
+ const typeName=e.type==='korting'?'KORTING':e.type==='korte_datum'?'KORTE DATUM':'RETOUR';
+ return `<div class="history-card" style="border-left:8px solid ${done?'#b91c1c':'#15803d'};background:${done?'#fff1f2':'#f0fdf4'}">
+ <div class="history-head"><strong>${safe(typeName)} — ${safe(e.productName)}</strong><b style="color:${done?'#b91c1c':'#15803d'}">${done?'🔴 AFGEHANDELD':'🟢 OPENSTAAND'}</b></div>
+ <div>${safe(e.date||'-')} · Klant: <b>${safe(e.company)}</b> · Klantnummer: <b>${safe(e.customerNumber||'-')}</b></div>
+ <div>Code: ${safe(e.productCode||'-')} · ${safe(e.qty)} ${safe(e.unit)} · Factuur: ${safe(e.invoice||'-')}</div>
+ ${e.type==='korting'?`<div>Normaal CG ${safe(e.normalPrice||'-')} → Korting CG ${safe(e.discountPrice||'-')}</div>`:''}
+ ${e.type==='korte_datum'?`<div>Leverdatum: ${safe(e.deliveryDate||'-')} · EXP: <b>${safe(e.expiry||'-')}</b></div>`:''}
+ ${e.note?`<div>Opmerking: ${safe(e.note)}</div>`:''}
+ <div class="dr-status-editor" data-id="${safe(e.id)}" style="margin-top:10px;padding:10px;background:white;border-radius:10px">
+ <label style="display:inline-flex;align-items:center;gap:7px;margin:5px 15px 5px 0"><input class="dr-return" type="checkbox" style="width:auto" ${returned?'checked':''}> Retour ontvangen</label>
+ <label style="display:inline-flex;align-items:center;gap:7px;margin:5px 15px 5px 0"><input class="dr-credit" type="checkbox" style="width:auto" ${credited?'checked':''}> Credit gemaakt</label>
+ <div class="grid2"><div><label>Retourdatum</label><input class="dr-return-date" type="date" value="${safe(e.returnDate||'')}"></div><div><label>Creditdatum</label><input class="dr-credit-date" type="date" value="${safe(e.creditDate||'')}"></div><div><label>Creditfactuurnummer</label><input class="dr-credit-invoice" value="${safe(e.creditInvoice||'')}"></div><div><label>Aantal retour / credit</label><input class="dr-handled-qty" type="number" min="0" step="any" value="${safe(e.handledQty??'')}"></div></div>
+ <button type="button" class="btn secondary dr-update" style="margin-top:9px">Status opslaan</button>
+ <button type="button" class="btn light drDelete" data-id="${safe(e.id)}" style="margin-top:9px">Verwijderen</button></div></div>`;
+}
 function drRender(){
- drCompanyOptions();const company=$('drCompany').value.trim().toLowerCase(),q=$('drCompanySearch').value.trim().toLowerCase(),allQ=$('drSearchAll').value.trim().toLowerCase();
- const searchable=e=>[e.company,e.productName,e.productCode,e.invoice].some(v=>String(v||'').toLowerCase().includes(allQ));
- const byCompany=drEntries.filter(e=>String(e.company||'').toLowerCase()===company&&[e.productName,e.productCode,e.invoice].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
- $('drCompanyHistory').innerHTML=company?(byCompany.map(drCard).join('')||'<p class="meta">Geen registraties bij dit bedrijf.</p>'):'<p class="meta">Kies een bedrijf om de historie te zien.</p>';
- $('drAllRecords').innerHTML=drEntries.filter(searchable).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(drCard).join('')||'<p class="meta">Geen registraties gevonden.</p>';
+ drCompanyOptions();const company=$('drCompany').value.trim().toLowerCase(),number=$('drCustomerNumber').value.trim().toLowerCase(),q=$('drCompanySearch').value.trim().toLowerCase(),allQ=$('drSearchAll').value.trim().toLowerCase();
+ const fields=e=>[e.customerNumber,e.company,e.productName,e.productCode,e.invoice,e.expiry,e.creditInvoice].map(v=>String(v||'').toLowerCase());
+ const byCompany=drEntries.filter(e=>(!company||String(e.company||'').toLowerCase()===company)&&(!number||String(e.customerNumber||'').toLowerCase()===number)&&fields(e).some(v=>v.includes(q))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ $('drCompanyHistory').innerHTML=company||number?(byCompany.map(drCard).join('')||'<p class="meta">Geen registraties gevonden voor deze klant.</p>'):'<p class="meta">Kies een klant of vul een klantnummer in om de historie te zien.</p>';
+ $('drAllRecords').innerHTML=drEntries.filter(e=>fields(e).some(v=>v.includes(allQ))).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(drCard).join('')||'<p class="meta">Geen registraties gevonden.</p>';
  document.querySelectorAll('.drDelete').forEach(b=>b.onclick=async()=>{if(!confirm('Deze registratie verwijderen?'))return;try{await deleteDoc(doc(db,'discountReturns',b.dataset.id));}catch(e){msg($('drMessage'),'Verwijderen mislukt: '+e.message,true)}});
+ document.querySelectorAll('.dr-update').forEach(b=>b.onclick=async()=>{
+  const box=b.closest('.dr-status-editor'),id=box.dataset.id,old=drEntries.find(e=>e.id===id);if(!old)return;
+  const returnReceived=box.querySelector('.dr-return').checked,creditMade=box.querySelector('.dr-credit').checked;
+  const handledQty=box.querySelector('.dr-handled-qty').value;
+  if(handledQty!==''&&(!Number.isFinite(Number(handledQty))||Number(handledQty)<0||Number(handledQty)>Number(old.qty)))return msg($('drMessage'),'Aantal moet tussen 0 en het geregistreerde aantal liggen.',true);
+  const changes={returnReceived,creditMade,returnDate:box.querySelector('.dr-return-date').value,creditDate:box.querySelector('.dr-credit-date').value,creditInvoice:box.querySelector('.dr-credit-invoice').value.trim(),handledQty:handledQty===''?'':Number(handledQty),updatedAt:new Date().toISOString()};
+  try{await setDoc(doc(db,'discountReturns',id),changes,{merge:true});msg($('drMessage'),'Status bijgewerkt. Voorraad blijft ongewijzigd.');}catch(e){msg($('drMessage'),'Bijwerken mislukt: '+e.message,true)}
+ });
 }
 function drFindProducts(){const q=$('drProductSearch').value.trim().toLowerCase();if(!q){$('drProductResults').innerHTML='';return}
  const found=products.filter(p=>[p.name,p.code,p.productCode,p.barcode,p.codeEach,p.codeP12,p.codeCrt,p.codePack].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,30);
@@ -2966,12 +2990,12 @@ function drFindProducts(){const q=$('drProductSearch').value.trim().toLowerCase(
 async function drSave(){if(currentRole!=='owner')return;const company=$('drCompany').value.trim();if(!company)return msg($('drMessage'),'Kies een bedrijf.',true);if(!drProduct)return msg($('drMessage'),'Kies een product uit de zoekresultaten.',true);
  const qty=Number($('drQty').value);if(!Number.isFinite(qty)||qty<=0)return msg($('drMessage'),'Vul een geldig aantal in.',true);
  const unit=$('drUnit').value,codes={EACH:drProduct.codeEach,P12:drProduct.codeP12,CRT:drProduct.codeCrt,PAK:drProduct.codePack,KG:drProduct.codeEach};
- const entry={company,type:$('drType').value,date:$('drDate').value,productId:drProduct.id,productName:drProduct.name||'',productCode:String(codes[unit]||drProduct.code||drProduct.barcode||''),qty,unit,invoice:$('drInvoice').value.trim(),normalPrice:$('drNormalPrice').value,discountPrice:$('drDiscountPrice').value,note:$('drNote').value.trim(),createdAt:new Date().toISOString()};
+ const entry={company,customerNumber:$('drCustomerNumber').value.trim(),deliveryDate:$('drDeliveryDate').value,expiry:$('drExpiry').value.trim(),returnReceived:false,creditMade:false,returnDate:'',creditDate:'',creditInvoice:'',handledQty:'',type:$('drType').value,date:$('drDate').value,productId:drProduct.id,productName:drProduct.name||'',productCode:String(codes[unit]||drProduct.code||drProduct.barcode||''),qty,unit,invoice:$('drInvoice').value.trim(),normalPrice:$('drNormalPrice').value,discountPrice:$('drDiscountPrice').value,note:$('drNote').value.trim(),createdAt:new Date().toISOString()};
  try{await addDoc(collection(db,'discountReturns'),entry);msg($('drMessage'),'Opgeslagen. De voorraad is niet veranderd.');$('drProductSearch').value='';$('drSelectedProduct').textContent='Nog geen product gekozen';drProduct=null;$('drInvoice').value='';$('drNote').value='';$('drNormalPrice').value='';$('drDiscountPrice').value='';}catch(e){msg($('drMessage'),'Opslaan mislukt: '+e.message,true)}
 }
-$('drCompany').oninput=drRender;$('drCompanySearch').oninput=drRender;$('drSearchAll').oninput=drRender;
+$('drCompany').oninput=drRender;$('drCustomerNumber').oninput=drRender;$('drCompanySearch').oninput=drRender;$('drSearchAll').oninput=drRender;
 $('drProductSearch').oninput=()=>{if(drProduct&&$('drProductSearch').value!==drProduct.name){drProduct=null;$('drSelectedProduct').textContent='Nog geen product gekozen'}drFindProducts()};
-$('drSave').onclick=drSave;$('drDate').value=new Date().toLocaleDateString('en-CA');
+$('drSave').onclick=drSave;$('drDate').value=new Date().toLocaleDateString('en-CA');$('drDeliveryDate').value=new Date().toLocaleDateString('en-CA');
 
 function startOwnerListeners(){
   onSnapshot(collection(db,'discountReturns'),snap=>{drEntries=snap.docs.map(d=>({id:d.id,...d.data()}));drRender()},e=>msg($('drMessage'),'Registraties laden mislukt: '+e.message,true));
