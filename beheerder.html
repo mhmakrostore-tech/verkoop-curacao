@@ -2948,13 +2948,18 @@ async function addGiveawayEntry(){
 }
 
 
-function drNames(){return [...new Set([...customers.map(c=>c.name||c.customerName||c.companyName||''),...sales.map(x=>x.customerName||'')].map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'nl'));}
+function drNames(){return [...new Set([...customers.map(c=>c.name||c.customerName||c.companyName||''),...sales.map(x=>x.customerName||''),...drEntries.map(e=>e.company||'')].map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'nl'));}
+function drKnownCustomer(name,number){const records=[...drEntries,...customers];return records.find(x=>(name&&String(x.company||x.name||x.customerName||x.companyName||'').trim().toLowerCase()===name.toLowerCase())||(number&&String(x.customerNumber||x.number||x.customerNo||'').trim()===number));}
+function drFillCustomer(source){const name=$('drCompany').value.trim(),num=$('drCustomerNumber').value.trim(),match=drKnownCustomer(source==='name'?name:'',source==='number'?num:'');if(match){if(source==='number')$('drCompany').value=match.company||match.name||match.customerName||match.companyName||'';if(source==='name')$('drCustomerNumber').value=match.customerNumber||match.number||match.customerNo||'';}drRender();}
+function drWeight(p){const v=p.weightValue??p.weight??'';const u=p.weightUnit||'';return v!==''&&Number(v)>0?String(v)+' '+u:'';}
+function drProductLabel(p){return [p.name||'',drWeight(p)].filter(Boolean).join(' – ');}
+
 function drCompanyOptions(){$('drCompanyOptions').innerHTML=drNames().map(n=>`<option value="${safe(n)}"></option>`).join('');}
 function drCard(e){
  const returned=!!e.returnReceived,credited=!!e.creditMade,done=returned||credited;
  const typeName=e.type==='korting'?'KORTING':e.type==='korte_datum'?'KORTE DATUM':'RETOUR';
  return `<div class="history-card" style="border-left:8px solid ${done?'#b91c1c':'#15803d'};background:${done?'#fff1f2':'#f0fdf4'}">
- <div class="history-head"><strong>${safe(typeName)} — ${safe(e.productName)}</strong><b style="color:${done?'#b91c1c':'#15803d'}">${done?'🔴 AFGEHANDELD':'🟢 OPENSTAAND'}</b></div>
+ <div class="history-head"><strong>${safe(typeName)} — ${safe(e.productName)} ${safe(e.productWeight||'')}</strong><b style="color:${done?'#b91c1c':'#15803d'}">${done?'🔴 AFGEHANDELD':'🟢 OPENSTAAND'}</b></div>
  <div>${safe(e.date||'-')} · Klant: <b>${safe(e.company)}</b> · Klantnummer: <b>${safe(e.customerNumber||'-')}</b></div>
  <div>Code: ${safe(e.productCode||'-')} · ${safe(e.qty)} ${safe(e.unit)} · Factuur: ${safe(e.invoice||'-')}</div>
  ${e.type==='korting'?`<div>Normaal CG ${safe(e.normalPrice||'-')} → Korting CG ${safe(e.discountPrice||'-')}</div>`:''}
@@ -2985,15 +2990,15 @@ function drRender(){
 }
 function drFindProducts(){const q=$('drProductSearch').value.trim().toLowerCase();if(!q){$('drProductResults').innerHTML='';return}
  const found=products.filter(p=>[p.name,p.code,p.productCode,p.barcode,p.codeEach,p.codeP12,p.codeCrt,p.codePack].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,30);
- $('drProductResults').innerHTML=found.map(p=>`<button type="button" class="drOption" data-id="${safe(p.id)}"><b>${safe(p.name)}</b><small>${safe([p.codeEach,p.codeP12,p.codeCrt,p.codePack,p.code,p.barcode].filter(Boolean).join(' / '))}</small></button>`).join('')||'<p class="meta">Geen product gevonden.</p>';
- $('drProductResults').querySelectorAll('button').forEach(b=>b.onclick=()=>{drProduct=products.find(p=>p.id===b.dataset.id)||null;$('drProductSearch').value=drProduct?.name||'';$('drSelectedProduct').textContent=drProduct?'Gekozen: '+drProduct.name:'Nog geen product gekozen';$('drProductResults').innerHTML='';});}
+ $('drProductResults').innerHTML=found.map(p=>`<button type="button" class="drOption" data-id="${safe(p.id)}"><b>${safe(drProductLabel(p))}</b><small>${safe([p.codeEach,p.codeP12,p.codeCrt,p.codePack,p.code,p.barcode].filter(Boolean).join(' / '))}</small></button>`).join('')||'<p class="meta">Geen product gevonden.</p>';
+ $('drProductResults').querySelectorAll('button').forEach(b=>b.onclick=()=>{drProduct=products.find(p=>p.id===b.dataset.id)||null;$('drProductSearch').value=drProduct?.name||'';$('drSelectedProduct').textContent=drProduct?'Gekozen: '+drProductLabel(drProduct):'Nog geen product gekozen';$('drProductResults').innerHTML='';});}
 async function drSave(){if(currentRole!=='owner')return;const company=$('drCompany').value.trim();if(!company)return msg($('drMessage'),'Kies een bedrijf.',true);if(!drProduct)return msg($('drMessage'),'Kies een product uit de zoekresultaten.',true);
  const qty=Number($('drQty').value);if(!Number.isFinite(qty)||qty<=0)return msg($('drMessage'),'Vul een geldig aantal in.',true);
  const unit=$('drUnit').value,codes={EACH:drProduct.codeEach,P12:drProduct.codeP12,CRT:drProduct.codeCrt,PAK:drProduct.codePack,KG:drProduct.codeEach};
- const entry={company,customerNumber:$('drCustomerNumber').value.trim(),deliveryDate:$('drDeliveryDate').value,expiry:$('drExpiry').value.trim(),returnReceived:false,creditMade:false,returnDate:'',creditDate:'',creditInvoice:'',handledQty:'',type:$('drType').value,date:$('drDate').value,productId:drProduct.id,productName:drProduct.name||'',productCode:String(codes[unit]||drProduct.code||drProduct.barcode||''),qty,unit,invoice:$('drInvoice').value.trim(),normalPrice:$('drNormalPrice').value,discountPrice:$('drDiscountPrice').value,note:$('drNote').value.trim(),createdAt:new Date().toISOString()};
+ const entry={company,customerNumber:$('drCustomerNumber').value.trim(),deliveryDate:$('drDeliveryDate').value,expiry:$('drExpiry').value.trim(),returnReceived:false,creditMade:false,returnDate:'',creditDate:'',creditInvoice:'',handledQty:'',type:$('drType').value,date:$('drDate').value,productId:drProduct.id,productName:drProduct.name||'',productWeight:drWeight(drProduct),productCode:String(codes[unit]||drProduct.code||drProduct.barcode||''),qty,unit,invoice:$('drInvoice').value.trim(),normalPrice:$('drNormalPrice').value,discountPrice:$('drDiscountPrice').value,note:$('drNote').value.trim(),createdAt:new Date().toISOString()};
  try{await addDoc(collection(db,'discountReturns'),entry);msg($('drMessage'),'Opgeslagen. De voorraad is niet veranderd.');$('drProductSearch').value='';$('drSelectedProduct').textContent='Nog geen product gekozen';drProduct=null;$('drInvoice').value='';$('drNote').value='';$('drNormalPrice').value='';$('drDiscountPrice').value='';}catch(e){msg($('drMessage'),'Opslaan mislukt: '+e.message,true)}
 }
-$('drCompany').oninput=drRender;$('drCustomerNumber').oninput=drRender;$('drCompanySearch').oninput=drRender;$('drSearchAll').oninput=drRender;
+$('drCompany').oninput=()=>drFillCustomer('name');$('drCustomerNumber').oninput=()=>drFillCustomer('number');$('drCompanySearch').oninput=drRender;$('drSearchAll').oninput=drRender;
 $('drProductSearch').oninput=()=>{if(drProduct&&$('drProductSearch').value!==drProduct.name){drProduct=null;$('drSelectedProduct').textContent='Nog geen product gekozen'}drFindProducts()};
 $('drSave').onclick=drSave;$('drDate').value=new Date().toLocaleDateString('en-CA');$('drDeliveryDate').value=new Date().toLocaleDateString('en-CA');
 
