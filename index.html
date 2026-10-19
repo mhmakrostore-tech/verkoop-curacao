@@ -105,7 +105,7 @@ window.addEventListener('unhandledrejection',function(e){
 <section id="login" class="login hidden"><div class="login-card"><h1>Verkoop Curaçao</h1><p>Log in met het toegewezen account.</p><label>E-mailadres</label><input id="loginEmail" type="email" autocomplete="username" placeholder="naam@curacao.com"><label>Wachtwoord</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Wachtwoord"><button id="loginBtn" class="btn primary" type="button" style="margin-top:14px;width:100%">Inloggen</button><div id="loginMsg" class="message"></div></div></section>
 <div id="app" class="hidden">
 <header class="top"><div><h1>Verkoop Curaçao</h1><small id="email"></small></div><button id="logoutBtn" class="btn ghost">Uitloggen</button></header>
-<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
+<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="shortDate">Korte Datum</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
 <main>
 <section id="catalog" class="tab active">
 
@@ -142,6 +142,15 @@ window.addEventListener('unhandledrejection',function(e){
 <div id="catalogScanReader" class="hidden" style="max-width:520px;margin:0 auto 14px"></div>
 <button id="stopCatalogScanBtn" type="button" class="btn light hidden" style="margin-bottom:14px">Stop scanner</button>
 <div class="toolbar"><div class="scan-line"><input id="search" type="search" placeholder="Zoek product, code of barcode…"><button id="catalogScanBtn" type="button" class="btn secondary">Scan barcode</button></div><select id="category"><option value="all">Alle categorieën</option></select><select id="availability"><option value="available">Alleen beschikbaar</option><option value="all">Alles tonen</option><option value="soldout">Uitverkocht</option></select></div><div id="categoryJumpbar" class="category-jumpbar"></div><div id="grid"></div></section>
+<section id="shortDate" class="tab"><div class="panel">
+<h2>Korte Datum – factuur lezen</h2><p class="meta">Maak een foto of kies een bestaande foto. Controleer altijd de EXP-datums: de factuurdatum is niet automatisch een vervaldatum. De foto wordt alleen lokaal verwerkt; voor herkenning wordt een OCR-bibliotheek geladen via internet.</p>
+<label>Factuurfoto</label><input id="sdPhoto" type="file" accept="image/*" capture="environment">
+<img id="sdPreview" class="preview hidden" style="width:100%;max-width:500px;height:auto;object-fit:contain" alt="Factuurvoorbeeld">
+<div class="button-row" style="margin-top:12px"><button id="sdRead" class="btn primary" type="button">Foto automatisch lezen</button><button id="sdAdd" class="btn secondary" type="button">+ Product handmatig toevoegen</button></div>
+<div id="sdStatus" class="message" role="status"></div><div id="sdRecognized" class="unit-box hidden"><h3>Herkende tekst (controle)</h3><textarea id="sdText" rows="7" placeholder="Herkende tekst; je kunt deze ook zelf plakken"></textarea><button id="sdFind" type="button" class="btn light">Producten en datums zoeken in tekst</button></div>
+<h3>Producten en EXP-datums</h3><p class="meta">Kies per regel het juiste catalogusproduct, vul EXP in en controleer. Alleen bevestigde regels worden opgeslagen. Bestaande EXP-datums worden niet stilzwijgend overschreven.</p>
+<div id="sdRows"></div><button id="sdSave" type="button" class="btn primary" style="margin-top:12px">Gecontroleerde datums opslaan</button>
+<div id="sdSaveStatus" class="message" role="status"></div></div></section>
 <section id="add" class="tab">
 <div class="panel"><h2 id="formTitle">Nieuw product</h2><input id="editId" type="hidden">
 <div class="category-top-box">
@@ -708,7 +717,7 @@ window.addEventListener('unhandledrejection',function(e){
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
 import {getAuth,onAuthStateChanged,signOut,signInWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction,getDocs,writeBatch,query,where} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,updateDoc,getDoc,addDoc,deleteDoc,onSnapshot,serverTimestamp,runTransaction,getDocs,writeBatch,query,where} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=initializeFirestore(appFirebase,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}),$=id=>document.getElementById(id);
@@ -2805,7 +2814,7 @@ function applyRoleUI(){
   document.body.classList.toggle('tablet-mode',isSales);
 
   document.querySelectorAll('.tabs button').forEach(btn=>{
-    const adminTabs=['catalog','add','customers','cpHistory','pick'];
+    const adminTabs=['catalog','add','shortDate','customers','cpHistory','pick'];
     const salesTabs=['catalog','credit','cpHistory'];
     const keep=(isSales?salesTabs:adminTabs).includes(btn.dataset.tab);
     btn.classList.toggle('hidden',!keep);
@@ -4960,7 +4969,7 @@ if($('cpHistorySearch'))$('cpHistorySearch').oninput=renderCounterpointHistory;
 
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   if(currentRole==='sales'&&!['catalog','credit','cpHistory'].includes(b.dataset.tab))return;
-  if(currentRole==='owner'&&!['catalog','add','customers','cpHistory','pick'].includes(b.dataset.tab))return;
+  if(currentRole==='owner'&&!['catalog','add','shortDate','customers','cpHistory','pick'].includes(b.dataset.tab))return;
   if(currentRole==='pick'&&b.dataset.tab!=='pick')return;
   if(b.dataset.tab!=='add'){stopScanner();stopMakroScanner();stopWarehouseScanner();stopToppersScanner();}
   if(b.dataset.tab!=='catalog')stopCatalogScanner();
@@ -5470,6 +5479,66 @@ $('category').onchange=()=>{
   render();
 };
 $('availability').onchange=render;
+
+// Korte Datum: OCR draait lokaal in de browser; geen factuurbeelden naar Firestore.
+let sdImage=null,sdBusy=false;
+const sdRows=$('sdRows');
+function sdDate(v){
+ const m=String(v||'').trim().match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/);
+ if(!m)return '';
+ let y=Number(m[3]);if(y<100)y+=2000;
+ const d=new Date(Date.UTC(y,Number(m[2])-1,Number(m[1])));
+ return d.getUTCFullYear()===y&&d.getUTCMonth()===Number(m[2])-1&&d.getUTCDate()===Number(m[1])?`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:'';
+}
+function sdAddRow(id='',date='',checked=false){
+ const wrap=document.createElement('div');wrap.className='unit-box';
+ const opts=products.filter(p=>p.id&&p.name&&!p.isCategorySettings).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${safe(p.id)}" ${p.id===id?'selected':''}>${safe((p.productCode||p.codeEach||p.barcode||p.code||'')+' — '+p.name)}</option>`).join('');
+ wrap.innerHTML=`<label>Zoek product (code of naam)</label><input class="sdSearch" type="search" placeholder="Typ code of naam"><label>Product</label><select class="sdProduct"><option value="">Kies product</option>${opts}</select><div class="grid2"><div><label>EXP-datum</label><input class="sdDate" type="text" placeholder="DD-MM-JJJJ" value="${safe(date)}"></div><div><label>Opslaan in</label><select class="sdSlot"><option value="1">EXP 1</option><option value="2">EXP 2</option><option value="3">EXP 3 (alleen MAKRO/MAGAZIJN)</option></select></div></div><label style="font-weight:normal"><input class="sdConfirm" type="checkbox" style="width:auto" ${checked?'checked':''}> Ik heb product en EXP gecontroleerd</label><button class="btn light sdRemove" type="button">Regel verwijderen</button>`;
+ const sel=wrap.querySelector('.sdProduct');
+ wrap.querySelector('.sdSearch').oninput=e=>{const q=e.target.value.toLowerCase().trim();for(const o of sel.options){if(!o.value)continue;const p=products.find(x=>x.id===o.value);o.hidden=!!q&&!String([p?.name,p?.productCode,p?.codeEach,p?.barcode,p?.code].join(' ')).toLowerCase().includes(q)};};
+ wrap.querySelector('.sdRemove').onclick=()=>wrap.remove();sdRows.appendChild(wrap);
+}
+$('sdAdd').onclick=()=>sdAddRow();
+$('sdPhoto').onchange=e=>{const f=e.target.files?.[0];if(sdImage)URL.revokeObjectURL(sdImage);sdImage=f?URL.createObjectURL(f):null;$('sdPreview').classList.toggle('hidden',!f);if(f)$('sdPreview').src=sdImage;msg($('sdStatus'),f?'Foto geladen. Klik op Foto automatisch lezen.':'');};
+$('sdRead').onclick=async()=>{
+ if(sdBusy)return;const f=$('sdPhoto').files?.[0];if(!f)return msg($('sdStatus'),'Kies eerst een factuurfoto.',true);
+ sdBusy=true;$('sdRead').disabled=true;msg($('sdStatus'),'OCR laden en foto lezen… dit kan even duren.');
+ try{
+  if(!window.Tesseract){await new Promise((resolve,reject)=>{const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';sc.onload=resolve;sc.onerror=()=>reject(Error('OCR-bibliotheek niet bereikbaar; internet nodig.'));document.head.appendChild(sc);});}
+  const result=await window.Tesseract.recognize(f,'eng');$('sdText').value=result.data.text||'';$('sdRecognized').classList.remove('hidden');sdParse();msg($('sdStatus'),'Foto gelezen. Controleer de herkende regels en EXP-datums.');
+ }catch(e){$('sdRecognized').classList.remove('hidden');msg($('sdStatus'),'Automatisch lezen mislukt: '+e.message+'. Je kunt handmatig invoeren.',true);}finally{sdBusy=false;$('sdRead').disabled=false;}
+};
+function sdParse(){
+ const lines=$('sdText').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ let added=0;
+ for(const line of lines){
+  if(/\b(invoice|factuur|invoice date|datum factuur|order date|date issued)\b/i.test(line))continue;
+  const dates=[...line.matchAll(/\b\d{1,2}[-/.]\d{1,2}[-/.](?:20\d{2}|\d{2})\b/g)].map(x=>x[0]).filter(x=>sdDate(x));
+  if(!dates.length)continue;
+  const lower=line.toLowerCase();
+  const match=products.filter(p=>p.name).map(p=>{const codes=[p.productCode,p.codeEach,p.barcode,p.code].filter(Boolean).map(String);let score=codes.some(c=>c.length>=4&&new RegExp('(^|\\D)'+c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(\\D|$)').test(line))?100:0;const name=String(p.name).toLowerCase();if(name.length>4&&lower.includes(name))score=Math.max(score,80);return {p,score};}).sort((a,b)=>b.score-a.score)[0];
+  if(match?.score){sdAddRow(match.p.id,dates[0]);added++;}
+ }
+ if(!added){sdAddRow();msg($('sdStatus'),'Geen betrouwbare productkoppeling gevonden. Kies handmatig het product en EXP.',true);}else msg($('sdStatus'),`${added} mogelijke productregel(s) gevonden. Controleer alles voordat je opslaat.`);
+}
+$('sdFind').onclick=sdParse;
+$('sdSave').onclick=async()=>{
+ if(currentRole!=='owner')return msg($('sdSaveStatus'),'Alleen Beheerder kan EXP wijzigen.',true);
+ const rows=[...sdRows.children].filter(x=>x.querySelector('.sdConfirm')?.checked);
+ if(!rows.length)return msg($('sdSaveStatus'),'Vink eerst de gecontroleerde regels aan.',true);
+ const changes=new Map();
+ for(const r of rows){const id=r.querySelector('.sdProduct').value,date=sdDate(r.querySelector('.sdDate').value),slot=Number(r.querySelector('.sdSlot').value),p=products.find(x=>x.id===id);
+  if(!p||!date)return msg($('sdSaveStatus'),'Controleer de productkeuze en datum in elke aangevinkte regel.',true);
+  if(slot===3&&!['MAKRO','MAGAZIJN'].includes(String(p.category).toUpperCase()))return msg($('sdSaveStatus'),'EXP 3 is alleen voor MAKRO/MAGAZIJN.',true);
+  const key='expiryDate'+slot;const existing=changes.get(id)||{};
+  if((p[key]||'')&&(p[key]!==date)&&!confirm(`${p.name}: bestaande EXP ${slot} (${p[key]}) vervangen door ${date}?`))return;
+  existing[key]=date;changes.set(id,existing);
+ }
+ $('sdSave').disabled=true;
+ try{let n=0;for(const [id,fields] of changes){const p=products.find(x=>x.id===id);const exp=[1,2,3].map(i=>fields['expiryDate'+i]??p['expiryDate'+i]??(i===1?p.expiryDate:'')).filter(Boolean).sort();await updateDoc(doc(db,'catalogProducts',id),{...fields,expiryDate:exp[0]||''});n++;}msg($('sdSaveStatus'),`${n} product(en) bijgewerkt. De wijzigingen verschijnen ook in de catalogus.`);}
+ catch(e){msg($('sdSaveStatus'),'Opslaan mislukt: '+e.message,true);}finally{$('sdSave').disabled=false;}
+};
+
 onAuthStateChanged(auth,async u=>{
   $('loading').classList.add('hidden');
 
