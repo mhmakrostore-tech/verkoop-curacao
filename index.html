@@ -69,6 +69,10 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 </style>
 
 <style>
+.admin-card-availability{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:8px 0 4px}
+.admin-card-availability .avail-label{font-weight:800;font-size:.86rem}
+.admin-card-availability button{border:1px solid #d1d5db;border-radius:999px;padding:6px 11px;font-weight:800;cursor:pointer;background:#f3f4f6}
+.admin-card-availability button.active{background:#111827;color:#fff}
 .mqs-variant-head{min-width:0}
 .mqs-variant-head span{min-width:0;overflow-wrap:anywhere}
 .mqs-variant-head strong{white-space:nowrap;flex:0 0 auto}
@@ -84,6 +88,9 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 </style>
 
 <style>html,body{scroll-behavior:auto!important}</style>
+<style>/* Alleen de statusbadge bovenop productfotos verbergen; JA/NEE knoppen blijven werken. */
+.photo .badge{display:none!important}
+</style>
 </head>
 <body>
 <div id="startupError" style="display:none;margin:12px;padding:12px;border:2px solid #b91c1c;border-radius:10px;background:#fff;color:#b91c1c;font-weight:700"></div>
@@ -4090,6 +4097,97 @@ function clearCatalogSearchForNextProduct(){
   if($('quickSearchInput'))$('quickSearchInput').value='';
 }
 
+function addAdminAvailabilityControls(){
+  if(currentRole!=='owner') return;
+  const cards=[...document.querySelectorAll('#grid article.card')];
+  cards.forEach(card=>{
+    if(card.querySelector('.admin-card-availability')) return;
+    const editBtn=card.querySelector('.edit-product-card,.edit-mqs-group');
+    if(!editBtn) return;
+
+    let targetProducts=[];
+    const isMQSGroup=editBtn.classList.contains('edit-mqs-group');
+    if(editBtn.classList.contains('edit-product-card')){
+      const id=editBtn.dataset.id||'';
+      const product=products.find(p=>String(p.id)===String(id));
+      if(product && product.internalOnly!==true) targetProducts=[product];
+    }else{
+      const groupName=String(card.querySelector('h2')?.textContent||'').trim().toLowerCase();
+      targetProducts=products.filter(p=>
+        String(p.category||'').trim().toUpperCase()==='MQS' &&
+        mqsBaseName(String(p.name||'')).trim().toLowerCase()===groupName &&
+        p.internalOnly!==true
+      );
+    }
+    if(!targetProducts.length) return;
+
+    const wrap=document.createElement('div');
+    wrap.className='admin-card-availability no-print';
+
+    if(isMQSGroup){
+      const variants=dedupeMQSVariants(targetProducts);
+      wrap.innerHTML=`<span class="avail-label">Beschikbaar per gewicht:</span>
+        ${variants.map(p=>{
+          const available=p.available!==false;
+          return `<div class="mqs-availability-row" data-avail-product="${p.id}" style="display:flex;align-items:center;gap:6px;margin-top:5px">
+            <strong style="min-width:58px">${safe(mqsVariantLabel(p))}</strong>
+            <button type="button" class="${available?'active':''}" data-v="1" data-product-id="${p.id}">JA</button>
+            <button type="button" class="${!available?'active':''}" data-v="0" data-product-id="${p.id}">NEE</button>
+          </div>`;
+        }).join('')}`;
+      wrap.querySelectorAll('button[data-product-id]').forEach(btn=>{
+        btn.onclick=async ev=>{
+          ev.preventDefault(); ev.stopPropagation();
+          const id=btn.dataset.productId||'';
+          const newValue=btn.dataset.v==='1';
+          const product=products.find(p=>String(p.id)===String(id));
+          if(!product)return;
+          const y=window.scrollY;
+          try{
+            await setCatalogAvailability([id],newValue);
+            product.available=newValue;
+            const row=wrap.querySelector(`[data-avail-product="${CSS.escape(id)}"]`);
+            row?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',(b.dataset.v==='1')===newValue));
+            render();
+            requestAnimationFrame(()=>window.scrollTo(0,y));
+            setTimeout(()=>window.scrollTo(0,y),120);
+          }catch(e){
+            console.error(e);
+            alert('Beschikbaar JA/NEE opslaan is mislukt.');
+          }
+        };
+      });
+    }else{
+      const isAvailable=targetProducts.some(p=>p.available!==false);
+      wrap.innerHTML=`<span class="avail-label">Beschikbaar:</span>
+        <button type="button" class="${isAvailable?'active':''}" data-v="1">JA</button>
+        <button type="button" class="${!isAvailable?'active':''}" data-v="0">NEE</button>`;
+      wrap.querySelectorAll('button').forEach(btn=>{
+        btn.onclick=async ev=>{
+          ev.preventDefault(); ev.stopPropagation();
+          const newValue=btn.dataset.v==='1';
+          const y=window.scrollY;
+          try{
+            await setCatalogAvailability(targetProducts.map(p=>p.id),newValue);
+            targetProducts.forEach(p=>p.available=newValue);
+            wrap.querySelectorAll('button').forEach(b=>b.classList.toggle('active',(b.dataset.v==='1')===newValue));
+            const badge=card.querySelector('.badge');
+            if(badge) badge.textContent=newValue?'Beschikbaar':'Uitverkocht';
+            requestAnimationFrame(()=>window.scrollTo(0,y));
+            setTimeout(()=>window.scrollTo(0,y),120);
+          }catch(e){
+            console.error(e);
+            alert('Beschikbaar JA/NEE opslaan is mislukt.');
+          }
+        };
+      });
+    }
+
+    const actions=card.querySelector('.product-admin-actions');
+    if(actions) actions.parentElement.insertBefore(wrap,actions);
+    else card.querySelector('.body')?.appendChild(wrap);
+  });
+}
 
 function render(){
   refreshToppersExampleVisibility();
@@ -5481,6 +5579,18 @@ onAuthStateChanged(auth,async u=>{
   startMQSExampleListener();
   if(currentRole==='owner')startOwnerListeners();
 });
+
+
+if(!window.__adminAvailabilityObserver){
+  window.__adminAvailabilityObserver=new MutationObserver(()=>{
+    clearTimeout(window.__adminAvailabilityTimer);
+    window.__adminAvailabilityTimer=setTimeout(()=>{try{addAdminAvailabilityControls();}catch(e){}},40);
+  });
+  window.addEventListener('load',()=>{
+    window.__adminAvailabilityObserver.observe(document.body,{childList:true,subtree:true});
+    setTimeout(()=>{try{addAdminAvailabilityControls();}catch(e){}},300);
+  });
+}
 
 
 // CREDIT is an extra option and can be combined with E.C / D.A / D.A COOL.
