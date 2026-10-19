@@ -44,7 +44,7 @@ body.tablet-mode .duplicate-mqs-group,
 body.tablet-mode .delete-mqs-group{display:none!important}
 .exp-line{margin-top:6px;font-weight:800;color:#111827}
 .catalog-note{margin-top:10px;padding:9px 10px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;font-size:.92rem;line-height:1.4}
-.catalog-note strong{color:#9a3412}</style>
+.catalog-note strong{color:#9a3412}.dr-results{max-height:300px;overflow:auto;display:grid;gap:6px;margin-top:8px}.drOption{border:1px solid #ddd;border-radius:10px;padding:11px;background:#fff;text-align:left;cursor:pointer}.drOption:hover{background:#fef9c3}.drOption small{display:block;color:#666;margin-top:4px}#drCompanyHistory,#drAllRecords{margin-top:14px}</style>
 
 <style>
 .admin-card-availability{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:8px 0 4px}
@@ -76,7 +76,7 @@ window.addEventListener('unhandledrejection',function(e){
 <section id="login" class="login hidden"><div class="login-card"><h1>Verkoop Curaçao</h1><p>Log in met het toegewezen account.</p><label>E-mailadres</label><input id="loginEmail" type="email" autocomplete="username" placeholder="naam@curacao.com"><label>Wachtwoord</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Wachtwoord"><button id="loginBtn" class="btn primary" type="button" style="margin-top:14px;width:100%">Inloggen</button><div id="loginMsg" class="message"></div></div></section>
 <div id="app" class="hidden">
 <header class="top"><div><h1>Verkoop Curaçao</h1><small id="email"></small></div><button id="logoutBtn" class="btn ghost">Uitloggen</button></header>
-<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
+<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="discountReturns">Kortingen & Retouren</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
 <main>
 <section id="catalog" class="tab active">
 
@@ -463,6 +463,16 @@ window.addEventListener('unhandledrejection',function(e){
 
 
 
+<section id="discountReturns" class="tab">
+<div class="panel"><h2>Kortingen & Retouren</h2><p class="meta">Registratie per bedrijf. Voorraad, verkoop en facturen worden niet aangepast.</p>
+<label>Bedrijf / klant</label><input id="drCompany" list="drCompanyOptions" autocomplete="off" placeholder="Zoek of typ bedrijfsnaam"><datalist id="drCompanyOptions"></datalist>
+<h3>Historie van dit bedrijf</h3><input id="drCompanySearch" type="search" placeholder="Zoek product, code of invoicenummer"><div id="drCompanyHistory"></div></div>
+<div class="panel"><h3>Korting of retour registreren</h3><div class="grid2"><div><label>Soort</label><select id="drType"><option value="korting">Korting</option><option value="retour">Retour / teruggenomen</option></select></div><div><label>Datum</label><input id="drDate" type="date"></div></div>
+<label>Product zoeken (naam of code)</label><input id="drProductSearch" autocomplete="off" placeholder="Typ productnaam of code"><div id="drProductResults" class="dr-results"></div><p id="drSelectedProduct" class="meta">Nog geen product gekozen</p>
+<div class="grid2"><div><label>Aantal</label><input id="drQty" type="number" min="0.001" step="any" value="1"></div><div><label>Eenheid</label><select id="drUnit"><option>EACH</option><option>P12</option><option>CRT</option><option>PAK</option><option>KG</option></select></div><div><label>Invoicenummer</label><input id="drInvoice" placeholder="Optioneel"></div><div><label>Normale prijs CG</label><input id="drNormalPrice" type="number" min="0" step=".01" placeholder="Bij korting"></div><div><label>Prijs na korting CG</label><input id="drDiscountPrice" type="number" min="0" step=".01" placeholder="Bij korting"></div></div>
+<label>Reden / opmerking</label><textarea id="drNote" rows="2"></textarea><button id="drSave" type="button" class="btn primary" style="margin-top:12px">Registratie opslaan</button><div id="drMessage" class="message"></div></div>
+<div class="panel"><h3>Alle kortingen & retouren zoeken</h3><input id="drSearchAll" type="search" placeholder="Zoek bedrijf, product, code of invoice"><div id="drAllRecords"></div></div>
+</section>
 <section id="pick" class="tab">
   <div class="panel">
     <h2>ORDER PICK</h2>
@@ -663,7 +673,7 @@ import {getFirestore,collection,doc,setDoc,getDoc,addDoc,deleteDoc,onSnapshot,se
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=getFirestore(appFirebase),$=id=>document.getElementById(id);
-let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
+let drEntries=[],drProduct=null;let products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
 
@@ -2554,7 +2564,7 @@ function applyRoleUI(){
   document.body.classList.toggle('tablet-mode',isSales);
 
   document.querySelectorAll('.tabs button').forEach(btn=>{
-    const adminTabs=['catalog','add','customers','cpHistory','pick'];
+    const adminTabs=['catalog','add','customers','cpHistory','pick','discountReturns'];
     const salesTabs=['catalog','credit','cpHistory'];
     const keep=(isSales?salesTabs:adminTabs).includes(btn.dataset.tab);
     btn.classList.toggle('hidden',!keep);
@@ -2686,6 +2696,7 @@ async function markPickSeen(id){
       delete localOrder.pickReadAt;
     }
     renderPickOrders();
+    drCompanyOptions();
     console.error('ORDER PICK gelezen opslaan mislukt',e);
     msg($('pickMessage'),'Gelezen status kon niet worden opgeslagen: '+e.message,true);
     return false;
@@ -2936,7 +2947,34 @@ async function addGiveawayEntry(){
   }catch(e){msg($('giveawayMessage'),'Opslaan mislukt: '+e.message,true);}
 }
 
+
+function drNames(){return [...new Set([...customers.map(c=>c.name||c.customerName||c.companyName||''),...sales.map(x=>x.customerName||'')].map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'nl'));}
+function drCompanyOptions(){$('drCompanyOptions').innerHTML=drNames().map(n=>`<option value="${safe(n)}"></option>`).join('');}
+function drCard(e){return `<div class="history-card"><strong>${safe(e.type==='korting'?'KORTING':'RETOUR')} — ${safe(e.productName)}</strong><div>${safe(e.date)} · Bedrijf: <b>${safe(e.company)}</b></div><div>Code: ${safe(e.productCode||'-')} · ${safe(e.qty)} ${safe(e.unit)} · Invoice: ${safe(e.invoice||'-')}</div>${e.type==='korting'?`<div>Normaal CG ${safe(e.normalPrice||'-')} → Korting CG ${safe(e.discountPrice||'-')}</div>`:''}${e.note?`<div>Opmerking: ${safe(e.note)}</div>`:''}<button type="button" class="btn light drDelete" data-id="${safe(e.id)}" style="margin-top:8px">Verwijderen</button></div>`;}
+function drRender(){
+ drCompanyOptions();const company=$('drCompany').value.trim().toLowerCase(),q=$('drCompanySearch').value.trim().toLowerCase(),allQ=$('drSearchAll').value.trim().toLowerCase();
+ const searchable=e=>[e.company,e.productName,e.productCode,e.invoice].some(v=>String(v||'').toLowerCase().includes(allQ));
+ const byCompany=drEntries.filter(e=>String(e.company||'').toLowerCase()===company&&[e.productName,e.productCode,e.invoice].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ $('drCompanyHistory').innerHTML=company?(byCompany.map(drCard).join('')||'<p class="meta">Geen registraties bij dit bedrijf.</p>'):'<p class="meta">Kies een bedrijf om de historie te zien.</p>';
+ $('drAllRecords').innerHTML=drEntries.filter(searchable).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(drCard).join('')||'<p class="meta">Geen registraties gevonden.</p>';
+ document.querySelectorAll('.drDelete').forEach(b=>b.onclick=async()=>{if(!confirm('Deze registratie verwijderen?'))return;try{await deleteDoc(doc(db,'discountReturns',b.dataset.id));}catch(e){msg($('drMessage'),'Verwijderen mislukt: '+e.message,true)}});
+}
+function drFindProducts(){const q=$('drProductSearch').value.trim().toLowerCase();if(!q){$('drProductResults').innerHTML='';return}
+ const found=products.filter(p=>[p.name,p.code,p.productCode,p.barcode,p.codeEach,p.codeP12,p.codeCrt,p.codePack].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,30);
+ $('drProductResults').innerHTML=found.map(p=>`<button type="button" class="drOption" data-id="${safe(p.id)}"><b>${safe(p.name)}</b><small>${safe([p.codeEach,p.codeP12,p.codeCrt,p.codePack,p.code,p.barcode].filter(Boolean).join(' / '))}</small></button>`).join('')||'<p class="meta">Geen product gevonden.</p>';
+ $('drProductResults').querySelectorAll('button').forEach(b=>b.onclick=()=>{drProduct=products.find(p=>p.id===b.dataset.id)||null;$('drProductSearch').value=drProduct?.name||'';$('drSelectedProduct').textContent=drProduct?'Gekozen: '+drProduct.name:'Nog geen product gekozen';$('drProductResults').innerHTML='';});}
+async function drSave(){if(currentRole!=='owner')return;const company=$('drCompany').value.trim();if(!company)return msg($('drMessage'),'Kies een bedrijf.',true);if(!drProduct)return msg($('drMessage'),'Kies een product uit de zoekresultaten.',true);
+ const qty=Number($('drQty').value);if(!Number.isFinite(qty)||qty<=0)return msg($('drMessage'),'Vul een geldig aantal in.',true);
+ const unit=$('drUnit').value,codes={EACH:drProduct.codeEach,P12:drProduct.codeP12,CRT:drProduct.codeCrt,PAK:drProduct.codePack,KG:drProduct.codeEach};
+ const entry={company,type:$('drType').value,date:$('drDate').value,productId:drProduct.id,productName:drProduct.name||'',productCode:String(codes[unit]||drProduct.code||drProduct.barcode||''),qty,unit,invoice:$('drInvoice').value.trim(),normalPrice:$('drNormalPrice').value,discountPrice:$('drDiscountPrice').value,note:$('drNote').value.trim(),createdAt:new Date().toISOString()};
+ try{await addDoc(collection(db,'discountReturns'),entry);msg($('drMessage'),'Opgeslagen. De voorraad is niet veranderd.');$('drProductSearch').value='';$('drSelectedProduct').textContent='Nog geen product gekozen';drProduct=null;$('drInvoice').value='';$('drNote').value='';$('drNormalPrice').value='';$('drDiscountPrice').value='';}catch(e){msg($('drMessage'),'Opslaan mislukt: '+e.message,true)}
+}
+$('drCompany').oninput=drRender;$('drCompanySearch').oninput=drRender;$('drSearchAll').oninput=drRender;
+$('drProductSearch').oninput=()=>{if(drProduct&&$('drProductSearch').value!==drProduct.name){drProduct=null;$('drSelectedProduct').textContent='Nog geen product gekozen'}drFindProducts()};
+$('drSave').onclick=drSave;$('drDate').value=new Date().toLocaleDateString('en-CA');
+
 function startOwnerListeners(){
+  onSnapshot(collection(db,'discountReturns'),snap=>{drEntries=snap.docs.map(d=>({id:d.id,...d.data()}));drRender()},e=>msg($('drMessage'),'Registraties laden mislukt: '+e.message,true));
   onSnapshot(collection(db,'sales'),s=>{
     sales=s.docs.map(d=>({id:d.id,...d.data()}));
     renderHistory();
@@ -2949,6 +2987,7 @@ function startOwnerListeners(){
     customers=s.docs.map(d=>({id:d.id,...d.data()}));
     renderCustomerSuggestions();
     renderCustomerManager();
+    drCompanyOptions();
   },e=>msg($('customerManagerMsg'),'Klanten laden mislukt: '+e.message,true));
 
   onSnapshot(collection(db,'tabletUsers'),s=>{
@@ -4395,7 +4434,7 @@ if($('cpHistorySearch'))$('cpHistorySearch').oninput=renderCounterpointHistory;
 
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   if(currentRole==='sales'&&!['catalog','credit','cpHistory'].includes(b.dataset.tab))return;
-  if(currentRole==='owner'&&!['catalog','add','customers','cpHistory','pick'].includes(b.dataset.tab))return;
+  if(currentRole==='owner'&&!['catalog','add','customers','cpHistory','pick','discountReturns'].includes(b.dataset.tab))return;
   if(currentRole==='pick'&&b.dataset.tab!=='pick')return;
   if(b.dataset.tab!=='add'){stopScanner();stopMakroScanner();stopWarehouseScanner();stopToppersScanner();}
   if(b.dataset.tab!=='catalog')stopCatalogScanner();
