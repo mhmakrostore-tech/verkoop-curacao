@@ -468,9 +468,9 @@ window.addEventListener('unhandledrejection',function(e){
 <label>Klantnummer</label><input id="drCustomerNumber" placeholder="Klantnummer (optioneel)"><label>Bedrijf / klantnaam</label><input id="drCompany" list="drCompanyOptions" autocomplete="off" placeholder="Zoek of typ bedrijfsnaam"><datalist id="drCompanyOptions"></datalist>
 <h3>Historie van dit bedrijf</h3><input id="drCompanySearch" type="search" placeholder="Zoek product, code, factuur of EXP-datum"><div id="drCompanyHistory"></div></div>
 <div class="panel"><h3>Korting of retour registreren</h3><div class="grid2"><div><label>Soort</label><select id="drType"><option value="korting">Korting</option><option value="retour">Retour / teruggenomen</option><option value="korte_datum">Korte Datum</option></select></div><div><label>Datum</label><input id="drDate" type="date"></div></div>
-<label>Product zoeken (naam of code)</label><input id="drProductSearch" autocomplete="off" placeholder="Typ productnaam of code"><div id="drProductResults" class="dr-results"></div><p id="drSelectedProduct" class="meta">Nog geen product gekozen</p>
+<div class="unit-box" style="margin-bottom:14px"><h3>Factuurfoto scannen</h3><p class="meta">Maak een foto of kies een bestaande foto. Herkende gegevens worden ter controle ingevuld; controleer altijd de factuur en EXP-datums.</p><input id="drInvoicePhoto" type="file" accept="image/*" capture="environment"><button id="drReadPhoto" class="btn secondary" type="button" style="margin-top:9px">Tekst uit foto lezen</button><div id="drPhotoMessage" class="message"></div><img id="drPhotoPreview" style="display:none;max-width:100%;max-height:250px;object-fit:contain;margin-top:10px;border-radius:10px" alt="Factuurfoto"><details style="margin-top:8px"><summary>Herkende tekst bekijken</summary><textarea id="drPhotoText" rows="5" readonly></textarea></details></div><label>Product zoeken (naam of code)</label><input id="drProductSearch" autocomplete="off" placeholder="Typ productnaam of code"><div id="drProductResults" class="dr-results"></div><p id="drSelectedProduct" class="meta">Nog geen product gekozen</p>
 <div class="grid2"><div><label>Aantal</label><input id="drQty" type="number" min="0.001" step="any" value="1"></div><div><label>Eenheid</label><select id="drUnit"><option>EACH</option><option>P12</option><option>CRT</option><option>PAK</option><option>KG</option></select></div><div><label>Invoicenummer</label><input id="drInvoice" placeholder="Optioneel"></div><div><label>Normale prijs CG</label><input id="drNormalPrice" type="number" min="0" step=".01" placeholder="Bij korting"></div><div><label>Prijs na korting CG</label><input id="drDiscountPrice" type="number" min="0" step=".01" placeholder="Bij korting"></div></div>
-<div class="grid2"><div><label>Leverdatum</label><input id="drDeliveryDate" type="date"></div><div><label>EXP-datum</label><input id="drExpiry" type="text" placeholder="DD-MM-JJJJ"></div></div><label>Reden / opmerking</label><textarea id="drNote" rows="2"></textarea><button id="drSave" type="button" class="btn primary" style="margin-top:12px">Registratie opslaan</button><div id="drMessage" class="message"></div></div>
+<div class="grid2"><div><label>Leverdatum</label><input id="drDeliveryDate" type="date"></div><div><label>EXP-datum</label><input id="drExpiry" type="text" placeholder="DD-MM-JJJJ"></div></div><label>Reden / opmerking</label><textarea id="drNote" rows="2"></textarea><div class="unit-box" style="margin-top:14px"><h3>Producten op deze factuur</h3><p class="meta">Voeg alle producten toe en sla daarna de factuur in één keer op. Bij een bestaand factuurnummer kun je eerdere producten terugzien.</p><button id="drAddLine" type="button" class="btn secondary">+ Product aan factuur toevoegen</button><div id="drInvoiceLines" style="margin-top:12px"></div><div id="drExistingInvoice" class="meta" style="margin-top:10px"></div></div><button id="drSave" type="button" class="btn primary" style="margin-top:12px">Hele factuur opslaan</button><div id="drMessage" class="message"></div></div>
 <div class="panel"><h3>Alle kortingen & retouren zoeken</h3><input id="drSearchAll" type="search" placeholder="Zoek klantnummer, klantnaam, product, code, factuur of EXP"><div id="drAllRecords"></div></div>
 </section>
 <section id="pick" class="tab">
@@ -2965,12 +2965,12 @@ function drCard(e){
  ${e.type==='korting'?`<div>Normaal CG ${safe(e.normalPrice||'-')} → Korting CG ${safe(e.discountPrice||'-')}</div>`:''}
  ${e.type==='korte_datum'?`<div>Leverdatum: ${safe(e.deliveryDate||'-')} · EXP: <b>${safe(e.expiry||'-')}</b></div>`:''}
  ${e.note?`<div>Opmerking: ${safe(e.note)}</div>`:''}
- <div class="dr-status-editor" data-id="${safe(e.id)}" style="margin-top:10px;padding:10px;background:white;border-radius:10px">
+ <details class="dr-entry-details" style="margin-top:10px"><summary style="cursor:pointer;font-weight:800;padding:10px 12px;background:#fff;border-radius:10px;list-style-position:inside">Klik om retour / credit te openen</summary><div class="dr-status-editor" data-id="${safe(e.id)}" style="margin-top:8px;padding:10px;background:white;border-radius:10px">
  <label style="display:inline-flex;align-items:center;gap:7px;margin:5px 15px 5px 0"><input class="dr-return" type="checkbox" style="width:auto" ${returned?'checked':''}> Retour ontvangen</label>
  <label style="display:inline-flex;align-items:center;gap:7px;margin:5px 15px 5px 0"><input class="dr-credit" type="checkbox" style="width:auto" ${credited?'checked':''}> Credit gemaakt</label>
  <div class="grid2"><div><label>Retourdatum</label><input class="dr-return-date" type="date" value="${safe(e.returnDate||'')}"></div><div><label>Creditdatum</label><input class="dr-credit-date" type="date" value="${safe(e.creditDate||'')}"></div><div><label>Creditfactuurnummer</label><input class="dr-credit-invoice" value="${safe(e.creditInvoice||'')}"></div><div><label>Aantal retour / credit</label><input class="dr-handled-qty" type="number" min="0" step="any" value="${safe(e.handledQty??'')}"></div></div>
  <button type="button" class="btn secondary dr-update" style="margin-top:9px">Status opslaan</button>
- <button type="button" class="btn light drDelete" data-id="${safe(e.id)}" style="margin-top:9px">Verwijderen</button></div></div>`;
+ <button type="button" class="btn light drDelete" data-id="${safe(e.id)}" style="margin-top:9px">Verwijderen</button></div></details></div>`;
 }
 function drRender(){
  drCompanyOptions();const company=$('drCompany').value.trim().toLowerCase(),number=$('drCustomerNumber').value.trim().toLowerCase(),q=$('drCompanySearch').value.trim().toLowerCase(),allQ=$('drSearchAll').value.trim().toLowerCase();
@@ -2992,18 +2992,67 @@ function drFindProducts(){const q=$('drProductSearch').value.trim().toLowerCase(
  const found=products.filter(p=>[p.name,p.code,p.productCode,p.barcode,p.codeEach,p.codeP12,p.codeCrt,p.codePack].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,30);
  $('drProductResults').innerHTML=found.map(p=>`<button type="button" class="drOption" data-id="${safe(p.id)}"><b>${safe(drProductLabel(p))}</b><small>${safe([p.codeEach,p.codeP12,p.codeCrt,p.codePack,p.code,p.barcode].filter(Boolean).join(' / '))}</small></button>`).join('')||'<p class="meta">Geen product gevonden.</p>';
  $('drProductResults').querySelectorAll('button').forEach(b=>b.onclick=()=>{drProduct=products.find(p=>p.id===b.dataset.id)||null;$('drProductSearch').value=drProduct?.name||'';$('drSelectedProduct').textContent=drProduct?'Gekozen: '+drProductLabel(drProduct):'Nog geen product gekozen';$('drProductResults').innerHTML='';});}
-async function drSave(){if(currentRole!=='owner')return;const company=$('drCompany').value.trim();if(!company)return msg($('drMessage'),'Kies een bedrijf.',true);if(!drProduct)return msg($('drMessage'),'Kies een product uit de zoekresultaten.',true);
- const qty=Number($('drQty').value);if(!Number.isFinite(qty)||qty<=0)return msg($('drMessage'),'Vul een geldig aantal in.',true);
- const unit=$('drUnit').value,codes={EACH:drProduct.codeEach,P12:drProduct.codeP12,CRT:drProduct.codeCrt,PAK:drProduct.codePack,KG:drProduct.codeEach};
- const entry={company,customerNumber:$('drCustomerNumber').value.trim(),deliveryDate:$('drDeliveryDate').value,expiry:$('drExpiry').value.trim(),returnReceived:false,creditMade:false,returnDate:'',creditDate:'',creditInvoice:'',handledQty:'',type:$('drType').value,date:$('drDate').value,productId:drProduct.id,productName:drProduct.name||'',productWeight:drWeight(drProduct),productCode:String(codes[unit]||drProduct.code||drProduct.barcode||''),qty,unit,invoice:$('drInvoice').value.trim(),normalPrice:$('drNormalPrice').value,discountPrice:$('drDiscountPrice').value,note:$('drNote').value.trim(),createdAt:new Date().toISOString()};
- try{await addDoc(collection(db,'discountReturns'),entry);msg($('drMessage'),'Opgeslagen. De voorraad is niet veranderd.');$('drProductSearch').value='';$('drSelectedProduct').textContent='Nog geen product gekozen';drProduct=null;$('drInvoice').value='';$('drNote').value='';$('drNormalPrice').value='';$('drDiscountPrice').value='';}catch(e){msg($('drMessage'),'Opslaan mislukt: '+e.message,true)}
+let drInvoiceLines=[];
+function drCurrentLine(){
+ if(!drProduct){msg($('drMessage'),'Kies eerst een product uit de zoekresultaten.',true);return null;}
+ const qty=Number($('drQty').value);
+ if(!Number.isFinite(qty)||qty<=0){msg($('drMessage'),'Vul een geldig aantal in.',true);return null;}
+ const unit=$('drUnit').value;
+ const codes={EACH:drProduct.codeEach,P12:drProduct.codeP12,CRT:drProduct.codeCrt,PAK:drProduct.codePack,KG:drProduct.codeEach};
+ return {productId:drProduct.id,productName:drProduct.name||'',productWeight:drWeight(drProduct),productCode:String(codes[unit]||drProduct.code||drProduct.barcode||''),qty,unit,expiry:$('drExpiry').value.trim(),normalPrice:$('drNormalPrice').value,discountPrice:$('drDiscountPrice').value,note:$('drNote').value.trim()};
 }
+function drRenderLines(){
+ $('drInvoiceLines').innerHTML=drInvoiceLines.map((x,i)=>`<div class="history-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><strong>${safe(x.productName)} ${safe(x.productWeight)}</strong><div class="meta">${safe(x.productCode)} · ${safe(x.qty)} ${safe(x.unit)} · EXP ${safe(x.expiry||'-')}</div></div><button type="button" class="btn light drRemoveLine" data-index="${i}">Verwijder</button></div>`).join('')||'<p class="meta">Nog geen producten toegevoegd.</p>';
+ $('drInvoiceLines').querySelectorAll('.drRemoveLine').forEach(b=>b.onclick=()=>{drInvoiceLines.splice(Number(b.dataset.index),1);drRenderLines()});
+}
+function drAddLine(){const line=drCurrentLine();if(!line)return;drInvoiceLines.push(line);drRenderLines();drProduct=null;$('drProductSearch').value='';$('drSelectedProduct').textContent='Nog geen product gekozen';$('drQty').value='1';$('drExpiry').value='';$('drNormalPrice').value='';$('drDiscountPrice').value='';$('drNote').value='';msg($('drMessage'),'Product toegevoegd. Voeg nog een product toe of sla de factuur op.');}
+$('drAddLine').onclick=drAddLine;
+function drLookupInvoice(){const inv=$('drInvoice').value.trim().toLowerCase();if(!inv){$('drExistingInvoice').textContent='';return;}
+ const matches=drEntries.filter(e=>String(e.invoice||'').trim().toLowerCase()===inv);
+ $('drExistingInvoice').innerHTML=matches.length?`<strong>Al opgeslagen op deze factuur (${matches.length} producten):</strong> `+matches.map(e=>safe(e.productName+' '+(e.productWeight||''))).join(' · '):'Dit factuurnummer is nog niet opgeslagen.';
+ if(matches.length){const first=matches[0];if(!$('drCompany').value)$('drCompany').value=first.company||'';if(!$('drCustomerNumber').value)$('drCustomerNumber').value=first.customerNumber||'';drRender();}
+}
+$('drInvoice').addEventListener('change',drLookupInvoice);
+async function drSave(){
+ if(currentRole!=='owner')return;
+ const company=$('drCompany').value.trim(),invoice=$('drInvoice').value.trim();
+ if(!company)return msg($('drMessage'),'Kies een bedrijf.',true);
+ if(!invoice)return msg($('drMessage'),'Vul het factuurnummer in.',true);
+ if(drProduct){const line=drCurrentLine();if(!line)return;drInvoiceLines.push(line);drRenderLines();}
+ if(!drInvoiceLines.length)return msg($('drMessage'),'Voeg minstens één product toe.',true);
+ const shared={company,customerNumber:$('drCustomerNumber').value.trim(),deliveryDate:$('drDeliveryDate').value,type:$('drType').value,date:$('drDate').value,invoice,photoCheckedAt:drPhotoScanDate||'',createdAt:new Date().toISOString()};
+ const entries=drInvoiceLines.map(line=>({...shared,...line,returnReceived:false,creditMade:false,returnDate:'',creditDate:'',creditInvoice:'',handledQty:''}));
+ const button=$('drSave');button.disabled=true;
+ try{for(const entry of entries)await addDoc(collection(db,'discountReturns'),entry);drInvoiceLines=[];drRenderLines();drProduct=null;$('drProductSearch').value='';$('drSelectedProduct').textContent='Nog geen product gekozen';msg($('drMessage'),entries.length+' producten opgeslagen onder factuur '+invoice+'. Voorraad blijft ongewijzigd.');drLookupInvoice();}
+ catch(e){msg($('drMessage'),'Opslaan mislukt: '+e.message+'. Controleer de historie voordat je opnieuw opslaat, om dubbele regels te voorkomen.',true)}
+ finally{button.disabled=false;}
+}
+let drPhotoScanDate='';
+$('drInvoicePhoto').onchange=()=>{const file=$('drInvoicePhoto').files?.[0];if(!file)return;const img=$('drPhotoPreview');if(img.dataset.objectUrl)URL.revokeObjectURL(img.dataset.objectUrl);img.dataset.objectUrl=URL.createObjectURL(file);img.src=img.dataset.objectUrl;img.style.display='block';$('drPhotoMessage').textContent='Foto gekozen. Klik op Tekst uit foto lezen.';};
+$('drReadPhoto').onclick=async()=>{
+ const file=$('drInvoicePhoto').files?.[0];if(!file)return msg($('drPhotoMessage'),'Maak of kies eerst een foto.',true);
+ const button=$('drReadPhoto');button.disabled=true;msg($('drPhotoMessage'),'Foto lezen… Dit kan even duren.');
+ try{
+  if(!window.Tesseract){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=reject;document.head.appendChild(script);});}
+  const result=await window.Tesseract.recognize(file,'eng');const text=result.data.text||'';$('drPhotoText').value=text;
+  const invoice=text.match(/(?:invoice|inv\.?|factuur|fact\.?)[\s:#-]*(?:no\.?|nr\.?|number|nummer)?[\s:#-]*([A-Z0-9\/-]{4,})/i);
+  if(invoice&&!$('drInvoice').value)$('drInvoice').value=invoice[1];
+  const dateMatch=text.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/);
+  if(dateMatch){const dd=dateMatch[1].padStart(2,'0'),mm=dateMatch[2].padStart(2,'0');if(Number(mm)<=12&&Number(dd)<=31)$('drDate').value=`${dateMatch[3]}-${mm}-${dd}`;}
+  drPhotoScanDate=new Date().toLocaleDateString('en-CA');drLookupInvoice();
+  const lines=text.split(/\n/).map(x=>x.trim()).filter(Boolean);const candidates=[];
+  for(const line of lines){const lower=line.toLowerCase();const found=products.find(p=>[p.codeEach,p.codeP12,p.codeCrt,p.codePack,p.code,p.barcode].filter(Boolean).some(code=>new RegExp('(^|\\W)'+String(code).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|\\W)','i').test(line))||((p.name||'').length>=5&&lower.includes(String(p.name).toLowerCase())));if(found&&!candidates.some(p=>p.id===found.id))candidates.push(found);}
+  $('drPhotoMessage').textContent='Tekst herkend. '+(invoice?'Factuurnummer gevonden. ':'')+candidates.length+' mogelijke catalogusproducten gevonden. Controleer en voeg ze hieronder toe; EXP-datums worden niet aangenomen uit de foto.';
+  if(candidates.length){$('drProductResults').innerHTML=candidates.map(p=>`<button type="button" class="drOption" data-id="${safe(p.id)}"><b>${safe(drProductLabel(p))}</b><small>${safe(p.codeEach||p.code||p.barcode||'')}</small></button>`).join('');$('drProductResults').querySelectorAll('button').forEach(b=>b.onclick=()=>{drProduct=products.find(p=>p.id===b.dataset.id)||null;$('drProductSearch').value=drProduct?.name||'';$('drSelectedProduct').textContent=drProduct?'Gekozen: '+drProductLabel(drProduct):'Nog geen product gekozen';$('drProductResults').innerHTML='';});}
+ }catch(e){msg($('drPhotoMessage'),'Foto kon niet automatisch gelezen worden (internet nodig). Je kunt de gegevens gewoon handmatig invoeren.',true)}finally{button.disabled=false;}
+};
+$('drSave').onclick=drSave;$('drDate').value=new Date().toLocaleDateString('en-CA');$('drDeliveryDate').value=new Date().toLocaleDateString('en-CA');drRenderLines();
+
 $('drCompany').oninput=()=>drFillCustomer('name');$('drCustomerNumber').oninput=()=>drFillCustomer('number');$('drCompanySearch').oninput=drRender;$('drSearchAll').oninput=drRender;
 $('drProductSearch').oninput=()=>{if(drProduct&&$('drProductSearch').value!==drProduct.name){drProduct=null;$('drSelectedProduct').textContent='Nog geen product gekozen'}drFindProducts()};
-$('drSave').onclick=drSave;$('drDate').value=new Date().toLocaleDateString('en-CA');$('drDeliveryDate').value=new Date().toLocaleDateString('en-CA');
 
 function startOwnerListeners(){
-  onSnapshot(collection(db,'discountReturns'),snap=>{drEntries=snap.docs.map(d=>({id:d.id,...d.data()}));drRender()},e=>msg($('drMessage'),'Registraties laden mislukt: '+e.message,true));
+  onSnapshot(collection(db,'discountReturns'),snap=>{drEntries=snap.docs.map(d=>({id:d.id,...d.data()}));drRender();drLookupInvoice()},e=>msg($('drMessage'),'Registraties laden mislukt: '+e.message,true));
   onSnapshot(collection(db,'sales'),s=>{
     sales=s.docs.map(d=>({id:d.id,...d.data()}));
     renderHistory();
