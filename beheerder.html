@@ -5013,7 +5013,7 @@ function mqsSheetRows(availableOnly){
   // Houd de volgorde van de ingeladen MQS-catalogus (tablet) aan.
   // Groepen: gewone MQS, daarna alle toffee/toffe, daarna alle 500 gram.
   // 500 gram heeft voorrang, ook wanneer de naam tevens toffee bevat.
-  const is500=row=>/(?:^|[^0-9])500\s*(?:gr|gram|g)(?=$|[^a-z0-9])/i.test(row.name);
+  const is500=row=>/(?:^|[^0-9])500\s*(?:gr|gram|g)?(?=$|[^a-z0-9])/i.test(row.name);
   const isToffee=row=>/toff(?:ee|e|ees)?/i.test(row.name);
   const group=row=>is500(row)?2:isToffee(row)?1:0;
   return rows.map((row,index)=>({...row,_tabletOrder:index}))
@@ -5025,6 +5025,9 @@ function mqsPrintPage(availableOnly){
   if(!rows.length){alert('Geen MQS-producten gevonden voor deze lijst.');return;}
   const escapeHtml=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   // 3 kolomgroepen, alfabetisch doorlopend van links naar rechts, volgende rij.
+  const now=new Date();
+  const printDay=String(now.getDate()).padStart(2,'0')+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const printYear=now.getFullYear();
   const perPage=60, htmlPages=[];
   for(let start=0;start<rows.length;start+=perPage){
     const slice=rows.slice(start,start+perPage);
@@ -5037,9 +5040,9 @@ function mqsPrintPage(availableOnly){
       }
       body+='</tr>';
     }
-    htmlPages.push('<section class="page"><div class="heading">MQS – '+(availableOnly?'BESCHIKBARE PRODUCTEN':'NIET BESCHIKBAAR')+' <span>Pagina '+(htmlPages.length+1)+'</span></div><table><thead><tr>'+Array(3).fill('<th class="code">Code</th><th class="name">Product</th><th colspan="3">&nbsp;</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></section>');
+    htmlPages.push('<section class="page"><div class="heading"><span class="print-day">'+printDay+'</span><span class="write-date">Date: ______ - ______ - '+printYear+'</span><span class="write-name">Name: ______________________________</span></div><table><thead><tr>'+Array(3).fill('<th class="code">Code</th><th class="name">Product</th><th colspan="3">&nbsp;</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></section>');
   }
-  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{font-weight:bold;font-size:11px;margin:0 0 5px}.heading span{float:right}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;height:8.6mm;padding:2px 3px;font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
+  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:bold;font-size:11px;margin:0 0 5px;white-space:nowrap}.heading .print-day{margin-right:15px}.heading .write-date{margin:auto}.heading .write-name{margin-left:auto}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;height:8.6mm;padding:2px 3px;font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
   const blob=new Blob([page],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob);
   const win=window.open(url,'_blank');
   if(!win){alert('Sta pop-ups toe om de printlijst te openen.');}
