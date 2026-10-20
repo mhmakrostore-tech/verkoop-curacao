@@ -44,7 +44,9 @@ body.tablet-mode .duplicate-mqs-group,
 body.tablet-mode .delete-mqs-group{display:none!important}
 .exp-line{margin-top:6px;font-weight:800;color:#111827}
 .catalog-note{margin-top:10px;padding:9px 10px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;font-size:.92rem;line-height:1.4}
-.catalog-note strong{color:#9a3412}.dr-results{max-height:300px;overflow:auto;display:grid;gap:6px;margin-top:8px}.drOption{border:1px solid #ddd;border-radius:10px;padding:11px;background:#fff;text-align:left;cursor:pointer}.drOption:hover{background:#fef9c3}.drOption small{display:block;color:#666;margin-top:4px}#drCompanyHistory,#drAllRecords{margin-top:14px}</style>
+.catalog-note strong{color:#9a3412}.dr-results{max-height:300px;overflow:auto;display:grid;gap:6px;margin-top:8px}.drOption{border:1px solid #ddd;border-radius:10px;padding:11px;background:#fff;text-align:left;cursor:pointer}.drOption:hover{background:#fef9c3}.drOption small{display:block;color:#666;margin-top:4px}#drCompanyHistory,#drAllRecords{margin-top:14px}
+html,body{scroll-behavior:auto!important} .category-jumpbar{scroll-behavior:auto!important}.admin-order-btn{margin-left:6px;padding:5px 9px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer;font-weight:bold}
+</style>
 
 <style>
 .admin-card-availability{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:8px 0 4px}
@@ -854,7 +856,7 @@ function editSavedOrder(id){
   render();
   updateCatalogCart();
   msg($('catalogOrderMessage'),`Bestelling van ${sale.customerName||'klant'} wordt bewerkt.`);
-  window.scrollTo({top:0,behavior:'smooth'});
+  window.scrollTo({top:0,behavior:'instant'});
 }
 
 
@@ -2535,7 +2537,7 @@ function renderQuoteHistory(){
   box.innerHTML=entries.length?entries.map(q=>`<div class="history-card"><div class="history-head"><div><strong>${safe(q.number||'Offerte')}</strong> — ${safe(q.customer||'-')}<div class="meta">${safe(q.date||'')} · CG ${Number(q.total||0).toFixed(2)}</div></div><button class="btn light load-quote" data-id="${safe(q.id)}">OPENEN</button></div></div>`).join(''):'<div class="meta">Nog geen offertes opgeslagen.</div>';
   box.querySelectorAll('.load-quote').forEach(b=>b.onclick=()=>loadQuote(b.dataset.id));
 }
-function loadQuote(id){const q=(quoteHistoryState.entries||[]).find(x=>x.id===id);if(!q)return;const qc=$('quoteCustomer'),qe=$('quoteEmail'),qn=$('quoteNumber'),qd=$('quoteDate'),qnote=$('quoteNote'),qi=$('quoteItems');if(!qc||!qe||!qn||!qd||!qnote||!qi)return;qc.value=q.customer||'';qe.value=q.email||'';qn.value=q.number||q.id;qd.value=q.date||new Date().toISOString().slice(0,10);qnote.value=q.note||'';qi.innerHTML='';(q.items||[]).forEach(addQuoteItem);if(!(q.items||[]).length)addQuoteItem();updateQuoteTotal();window.scrollTo({top:0,behavior:'smooth'});}
+function loadQuote(id){const q=(quoteHistoryState.entries||[]).find(x=>x.id===id);if(!q)return;const qc=$('quoteCustomer'),qe=$('quoteEmail'),qn=$('quoteNumber'),qd=$('quoteDate'),qnote=$('quoteNote'),qi=$('quoteItems');if(!qc||!qe||!qn||!qd||!qnote||!qi)return;qc.value=q.customer||'';qe.value=q.email||'';qn.value=q.number||q.id;qd.value=q.date||new Date().toISOString().slice(0,10);qnote.value=q.note||'';qi.innerHTML='';(q.items||[]).forEach(addQuoteItem);if(!(q.items||[]).length)addQuoteItem();updateQuoteTotal();window.scrollTo({top:0,behavior:'instant'});}
 async function loadQuoteHistory(){try{const snap=await getDoc(doc(db,'publicSettings','offerteTracker'));quoteHistoryState=snap.exists()?snap.data():{entries:[]};renderQuoteHistory();}catch(e){console.warn('Offertes laden mislukt',e);}}
 function refreshQuoteProductSuggestions(){
   let dl=$('quoteProductSuggestions');if(!dl){dl=document.createElement('datalist');dl.id='quoteProductSuggestions';document.body.appendChild(dl);}
@@ -3473,7 +3475,7 @@ function renderExpiryAlerts(){
       document.querySelector('[data-tab="catalog"]').click();
       $('search').value=p.barcode||p.name||'';
       render();
-      window.scrollTo({top:0,behavior:'smooth'});
+      window.scrollTo({top:0,behavior:'instant'});
     };
   });
 }
@@ -3849,7 +3851,7 @@ function render(){
     const jump=document.createElement('button');
     jump.type='button';
     jump.textContent=`${category} (${shownCount})`;
-    jump.onclick=()=>document.getElementById(safeId)?.scrollIntoView({behavior:'smooth',block:'start'});
+    jump.onclick=()=>{const target=document.getElementById(safeId);if(target)window.scrollTo({top:window.scrollY+target.getBoundingClientRect().top,behavior:'instant'});};
     $('categoryJumpbar').appendChild(jump);
 
     const section=document.createElement('section');
@@ -4072,7 +4074,10 @@ function renderList(){
     (byCategory[category]??=[]).push(p);
   }
 
+  const savedOrder=JSON.parse(localStorage.getItem('msfkAdminCategoryOrder')||'[]');
   const categoryNames=Object.keys(byCategory).sort((a,b)=>{
+    const ai=savedOrder.indexOf(a),bi=savedOrder.indexOf(b);
+    if(ai!==-1||bi!==-1){if(ai===-1)return 1;if(bi===-1)return -1;return ai-bi;}
     if(a.toUpperCase()==='MQS')return -1;
     if(b.toUpperCase()==='MQS')return 1;
     return a.localeCompare(b,'nl',{sensitivity:'base'});
@@ -4099,6 +4104,21 @@ function renderList(){
       <div class="edit-category-items"></div>
     </div>`;
 
+    const orderControls=document.createElement('span');
+    orderControls.style.cssText='display:inline-flex;gap:4px;margin-left:auto';
+    orderControls.innerHTML='<button type="button" class="admin-order-btn" title="Categorie naar boven">↑</button><button type="button" class="admin-order-btn" title="Categorie naar beneden">↓</button><button type="button" class="admin-order-btn" title="Categorie als eerste">⇧ Eerste</button>';
+    section.querySelector('.edit-category-header').appendChild(orderControls);
+    orderControls.querySelectorAll('button').forEach((btn,idx)=>btn.onclick=e=>{
+      e.preventDefault();e.stopPropagation();
+      const order=[...categoryNames];const pos=order.indexOf(category);
+      if(idx===0&&pos>0)[order[pos-1],order[pos]]=[order[pos],order[pos-1]];
+      if(idx===1&&pos<order.length-1)[order[pos+1],order[pos]]=[order[pos],order[pos+1]];
+      if(idx===2){order.splice(pos,1);order.unshift(category);}
+      localStorage.setItem('msfkAdminCategoryOrder',JSON.stringify(order));
+      renderList();
+      const newSection=[...$('list').querySelectorAll('.edit-category-section')].find(x=>x.querySelector('.edit-category-header span')?.textContent?.startsWith(category+' ('));
+      if(newSection)window.scrollTo({top:window.scrollY+newSection.getBoundingClientRect().top,behavior:'instant'});
+    });
     const itemsBox=section.querySelector('.edit-category-items');
     const search=section.querySelector('.edit-category-search');
     if(isMakroAdmin){
@@ -4251,7 +4271,7 @@ function edit(id){
     $('formTitle').textContent='MAGAZIJN product aanpassen';
     $('cancelBtn').classList.remove('hidden');
     document.querySelector('[data-tab="add"]').click();
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'instant'});
     return;
   }
   if(cat==='MAKRO'){
@@ -4271,7 +4291,7 @@ function edit(id){
     $('formTitle').textContent='MAKRO product aanpassen';
     $('cancelBtn').classList.remove('hidden');
     document.querySelector('[data-tab="add"]').click();
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'instant'});
     return;
   }
   if(cat==='MQS'){
@@ -4287,7 +4307,7 @@ function edit(id){
     $('formTitle').textContent='MQS product aanpassen';
     $('cancelBtn').classList.remove('hidden');
     document.querySelector('[data-tab="add"]').click();
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'instant'});
     return;
   }
   $('editId').value=id;setProductFormMode(true);
@@ -4299,7 +4319,7 @@ function edit(id){
   $('barcode').value=p.barcode||'';$('notes').value=p.notes||'';$('available').checked=p.available!==false;$('internalOnly').checked=p.internalOnly===true;
   photoData=p.photoData||'';if(photoData){$('preview').src=photoData;$('preview').classList.remove('hidden')}else $('preview').classList.add('hidden');
   updateMQSWeightUI();
-  $('formTitle').textContent='Product aanpassen';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'smooth'});
+  $('formTitle').textContent='Product aanpassen';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'instant'});
 }
 function duplicateProduct(id){
   if(currentRole==='sales')return;
@@ -4316,7 +4336,7 @@ function duplicateProduct(id){
     $('mqsProductName').value=sourceName+' KOPIE';
     ['mqsCodeMqs','mqsCode500','mqsCodeKg'].forEach(id=>$(id).value='');
     photoData=p.photoData||'';if(photoData){$('preview').src=photoData;$('preview').classList.remove('hidden')}
-    $('formTitle').textContent='MQS product dupliceren';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'smooth'});
+    $('formTitle').textContent='MQS product dupliceren';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'instant'});
     return;
   }
   $('editId').value='';editingMQSOriginalName='';setProductFormMode(false);
@@ -4325,7 +4345,7 @@ function duplicateProduct(id){
   $('priceEach').value=(p.priceEach??p.price??'');$('priceP12').value=p.priceP12??'';$('pricePack').value=p.pricePack??'';$('unitsPerPack').value=p.unitsPerPack??'';$('priceCrt').value=p.priceCrt??'';$('unitsPerCarton').value=p.unitsPerCarton??'';
   $('expiry1').value='';$('expiry2').value='';$('barcode').value='';$('notes').value=p.notes||'';$('available').checked=p.available!==false;$('internalOnly').checked=p.internalOnly===true;
   photoData=p.photoData||'';if(photoData){$('preview').src=photoData;$('preview').classList.remove('hidden')}else $('preview').classList.add('hidden');
-  updateMQSWeightUI();$('formTitle').textContent='Product dupliceren';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'smooth'});
+  updateMQSWeightUI();$('formTitle').textContent='Product dupliceren';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'instant'});
 }
 function reset(){stopMakroScanner();stopWarehouseScanner();editingMQSOriginalName='';setProductFormMode(false);['makroName','makroBarcode','makroExpiry1','makroExpiry2','makroExpiry3','makroStock1','makroStock2','makroStock3','warehouseName','warehouseBarcode','warehouseExpiry1','warehouseExpiry2','warehouseExpiry3','warehouseStock1','warehouseStock2','warehouseStock3'].forEach(id=>{if($(id))$(id).value='';});if($('mqsProductName'))$('mqsProductName').value='';['mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500','mqsCodeKg','mqsPriceKg','mqsCrtCodeKg','mqsCrtPriceKg','mqsCrtKg','mqsActualKg','mqsExpiry1','mqsExpiry2'].forEach(id=>{if($(id))$(id).value='';});$('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('mqsWeightPreset').value='';updateMQSWeightUI();$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('expiry1').value='';$('expiry2').value='';$('stockExp1').value='';$('stockExp2').value='';refreshCategorySelects();$('cat').value=allCategoryNames()[0]||'OVERIG';updateMQSWeightUI();$('barcode').value='';$('notes').value='';$('available').checked=true;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';$('formTitle').textContent='Nieuw product';$('cancelBtn').classList.add('hidden');$('foundBox').classList.add('hidden');$('foundBox').textContent='';stopScanner()}
 if($('addQuoteItemBtn'))$('addQuoteItemBtn').onclick=()=>addQuoteItem();
@@ -4714,9 +4734,9 @@ if($('quickSearchInput'))$('quickSearchInput').addEventListener('input',()=>{
 $('catalogHomeBtn').onclick=()=>{
   const catalogTab=document.querySelector('[data-tab="catalog"]');
   if(catalogTab)catalogTab.click();
-  window.scrollTo({top:0,behavior:'smooth'});
+  window.scrollTo({top:0,behavior:'instant'});
 };
-$('scrollTopBtn').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
+$('scrollTopBtn').onclick=()=>window.scrollTo({top:0,behavior:'instant'});
 window.addEventListener('scroll',()=>{
   $('scrollTopBtn').classList.toggle('top-hidden',window.scrollY<350);
 },{passive:true});
