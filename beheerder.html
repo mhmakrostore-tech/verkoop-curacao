@@ -364,7 +364,7 @@ window.addEventListener('unhandledrejection',function(e){
 <p><label><input id="internalOnly" type="checkbox" style="width:auto"> Alleen intern / niet in catalogus</label></p>
 <p class="meta">Intern product: blijft zichtbaar bij Meldingen en Producten beheren, maar niet voor klanten in de Catalogus.</p>
 <button id="saveBtn" class="btn primary">Opslaan</button> <button id="cancelBtn" class="btn light hidden">Annuleren</button><div id="formMsg" class="message"></div></div>
-<div class="panel" id="mqsPrintTools"><h2>MQS – Excel & A4 lijst</h2><p class="meta">Printvolgorde: MQS, 2 KG, TOFFEE en 500 GR (Toffee, Pruimen Chinees, Anis Candy en Hacks). Drie groepen naast elkaar, drie lege schrijfvakjes, A4 liggend en dubbelzijdig. Niet-beschikbare producten worden apart gehouden.</p><div class="button-row"><button id="mqsPrintAvailable" class="btn primary" type="button">Print beschikbare MQS (A4)</button> <button id="mqsExportCsv" class="btn secondary" type="button">Excel-lijst downloaden</button> <button id="mqsPrintUnavailable" class="btn light" type="button">Print niet beschikbaar</button></div><div id="mqsPrintMessage" class="message"></div></div>
+<div class="panel" id="mqsPrintTools"><h2>MQS – Excel & A4 lijst</h2><p class="meta">Compacte dubbelzijdige A4-print (één vel als de lijst past). Printvolgorde: MQS, 2 KG, TOFFEE en 500 GR (Toffee, Pruimen Chinees, Anis Candy en Hacks). Drie groepen naast elkaar, drie lege schrijfvakjes, A4 liggend en dubbelzijdig. Niet-beschikbare producten worden apart gehouden.</p><div class="button-row"><button id="mqsPrintAvailable" class="btn primary" type="button">Print beschikbare MQS (A4)</button> <button id="mqsExportCsv" class="btn secondary" type="button">Excel-lijst downloaden</button> <button id="mqsPrintUnavailable" class="btn light" type="button">Print niet beschikbaar</button></div><div id="mqsPrintMessage" class="message"></div></div>
 <div class="panel"><h2>Producten beheren</h2>
 <div class="catalog-admin-filter" id="adminCatalogFilter">
   <button type="button" class="btn light active" data-filter="all">ALLE</button>
@@ -5041,7 +5041,14 @@ function mqsPrintPage(availableOnly){
     while(i<rows.length && rows[i].group===group && items.length<3)items.push(rows[i++]);
     lines.push({items});
   }
-  const perPage=20,htmlPages=[];
+  // Verdeel de lijst over maximaal twee A4-zijden wanneer de hoeveelheid past.
+  // 31 compacte rijen per zijde houden schrijfvakken bruikbaar.
+  const maxRowsPerSide=31;
+  const perPage=Math.min(maxRowsPerSide,Math.max(1,Math.ceil(lines.length/2)));
+  const htmlPages=[];
+  if(lines.length>maxRowsPerSide*2){
+    alert('Er zijn '+lines.length+' tabelregels. Dit past niet leesbaar op één dubbelzijdig A4. De extra producten krijgen een volgende pagina.');
+  }
   for(let start=0;start<lines.length;start+=perPage){
     const slice=lines.slice(start,start+perPage);
     let body='';
@@ -5057,7 +5064,7 @@ function mqsPrintPage(availableOnly){
     for(let i=slice.length;i<perPage;i++)body+='<tr>'+Array(3).fill('<td class="code"></td><td class="name"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>').join('')+'</tr>';
     htmlPages.push('<section class="page"><div class="heading"><span class="print-day">'+printDay+'</span><span class="write-date">Date: ______ - ______ - '+printYear+'</span><span class="write-name">Name: ______________________________</span></div><table><thead><tr>'+Array(3).fill('<th class="code">Code</th><th class="name">Product</th><th colspan="3">&nbsp;</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></section>');
   }
-  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:bold;font-size:11px;margin:0 0 5px;white-space:nowrap}.heading .print-day{margin-right:15px}.heading .write-date{margin:auto}.heading .write-name{margin-left:auto}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;height:8.6mm;padding:2px 3px;font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}.section-title td{background:#ddd;font-size:10px;font-weight:900;padding-left:8px}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
+  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:bold;font-size:11px;margin:0 0 5px;white-space:nowrap}.heading .print-day{margin-right:15px}.heading .write-date{margin:auto}.heading .write-name{margin-left:auto}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;height:5.7mm;padding:1px 2px;font-size:7.2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}.section-title td{background:#ddd;font-size:8px;font-weight:900;padding-left:6px}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
   // Open een gewone HTML-pagina direct vanuit de klik (geen blob-URL).
   const win=window.open('','_blank');
   if(!win){alert('De browser blokkeert de printpagina. Sta pop-ups toe voor deze website.');return;}
