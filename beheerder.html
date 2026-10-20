@@ -2,6 +2,8 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
+<meta name="beheerder-versie" content="20261020-sync-01">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#eab308">
 <title>Verkoop Curaçao</title>
@@ -5145,5 +5147,51 @@ $('mqsExportCsv').addEventListener('click',mqsDownloadExcel);
   <button id="catalogHomeBtn" class="floating-btn" type="button" title="Terug naar Catalogus" aria-label="Terug naar Catalogus">🏠</button>
   <button id="scrollTopBtn" class="floating-btn top-hidden" type="button" title="Naar boven" aria-label="Naar boven">↑</button>
 </div>
+
+<!-- Beheerder updatecontrole: alleen beheerder.html; tablet blijft ongewijzigd. -->
+<div id="beheerderUpdateBanner" role="status" style="display:none;position:fixed;left:12px;right:12px;top:10px;z-index:200000;background:#fff8d7;border:2px solid #b45309;border-radius:12px;padding:12px;box-shadow:0 6px 20px #0003;font:700 14px Arial,sans-serif">
+  Nieuwe Beheerder-update beschikbaar. Sla eerst eventuele wijzigingen op.
+  <button id="beheerderUpdateReload" type="button" style="margin-left:10px;padding:8px 12px;cursor:pointer">Update laden</button>
+</div>
+<script>
+(function(){
+  'use strict';
+  const installedVersion='20261020-sync-01';
+  let busy=false, updateFound=false, changed=false;
+  const banner=document.getElementById('beheerderUpdateBanner');
+  const btn=document.getElementById('beheerderUpdateReload');
+  function reloadLatest(){
+    const u=new URL(location.href);
+    u.searchParams.set('v',String(Date.now()));
+    location.replace(u.href);
+  }
+  btn.addEventListener('click',reloadLatest);
+  document.addEventListener('input',function(e){
+    if(e.target.matches('input:not([type=search]),textarea,select')) changed=true;
+  },{capture:true});
+  async function checkForUpdate(){
+    if(busy||updateFound||!navigator.onLine)return;
+    busy=true;
+    try{
+      const u=new URL(location.pathname,location.origin);
+      u.searchParams.set('_updatecheck',String(Date.now()));
+      const response=await fetch(u.href,{cache:'no-store',credentials:'same-origin'});
+      if(!response.ok)return;
+      const html=await response.text();
+      const found=html.match(/<meta\s+name=["']beheerder-versie["']\s+content=["']([^"']+)["']/i);
+      if(!found||found[1]===installedVersion)return;
+      updateFound=true;
+      if(changed){banner.style.display='block';return;}
+      reloadLatest();
+    }catch(err){console.warn('Updatecontrole niet beschikbaar:',err);}
+    finally{busy=false;}
+  }
+  window.addEventListener('focus',checkForUpdate);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkForUpdate();});
+  window.addEventListener('online',checkForUpdate);
+  setInterval(checkForUpdate,5*60*1000);
+  setTimeout(checkForUpdate,12000);
+})();
+</script>
 </body>
 </html>
