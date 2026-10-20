@@ -364,7 +364,7 @@ window.addEventListener('unhandledrejection',function(e){
 <p><label><input id="internalOnly" type="checkbox" style="width:auto"> Alleen intern / niet in catalogus</label></p>
 <p class="meta">Intern product: blijft zichtbaar bij Meldingen en Producten beheren, maar niet voor klanten in de Catalogus.</p>
 <button id="saveBtn" class="btn primary">Opslaan</button> <button id="cancelBtn" class="btn light hidden">Annuleren</button><div id="formMsg" class="message"></div></div>
-<div class="panel" id="mqsPrintTools"><h2>MQS – Excel & A4 lijst</h2><p class="meta">Productlijst in tabletvolgorde: eerst MQS, daarna toffee (zonder 500 gram), als laatste alle 500 gram inclusief toffee 500 gram. Drie groepen naast elkaar, drie lege schrijfvakjes, A4 liggend en dubbelzijdig. Niet-beschikbare producten worden apart gehouden.</p><div class="button-row"><button id="mqsPrintAvailable" class="btn primary" type="button">Print beschikbare MQS (A4)</button> <button id="mqsExportCsv" class="btn secondary" type="button">Excel-lijst downloaden</button> <button id="mqsPrintUnavailable" class="btn light" type="button">Print niet beschikbaar</button></div><div id="mqsPrintMessage" class="message"></div></div>
+<div class="panel" id="mqsPrintTools"><h2>MQS – Excel & A4 lijst</h2><p class="meta">Printvolgorde: MQS, 2 KG, TOFFEE en 500 GR (Toffee, Pruimen Chinees, Anis Candy en Hacks). Drie groepen naast elkaar, drie lege schrijfvakjes, A4 liggend en dubbelzijdig. Niet-beschikbare producten worden apart gehouden.</p><div class="button-row"><button id="mqsPrintAvailable" class="btn primary" type="button">Print beschikbare MQS (A4)</button> <button id="mqsExportCsv" class="btn secondary" type="button">Excel-lijst downloaden</button> <button id="mqsPrintUnavailable" class="btn light" type="button">Print niet beschikbaar</button></div><div id="mqsPrintMessage" class="message"></div></div>
 <div class="panel"><h2>Producten beheren</h2>
 <div class="catalog-admin-filter" id="adminCatalogFilter">
   <button type="button" class="btn light active" data-filter="all">ALLE</button>
@@ -5002,47 +5002,62 @@ function mqsSheetRows(availableOnly){
   const rows=[];
   for(const p of entries){
     const name=String(p.name||'').trim();
-    // MQS kan meerdere formaten met afzonderlijke EACH/CRT codes hebben.
     const variant=String(p.mqsVariant||p.mqsFormat||p.mqsSize||'').trim();
     const code=String(p.codeEach||p.code||p.barcode||'').trim();
     const crt=String(p.codeCrt||'').trim();
-    if(code)rows.push({code,name:variant?name+' '+variant:name});
-    if(crt&&crt!==code)rows.push({code:crt,name:(variant?name+' '+variant:name)+' CRT'});
-    if(!code&&!crt)rows.push({code:'',name:variant?name+' '+variant:name});
+    const full=variant?name+' '+variant:name;
+    if(code)rows.push({code,name:full});
+    if(crt&&crt!==code)rows.push({code:crt,name:full+' CRT'});
+    if(!code&&!crt)rows.push({code:'',name:full});
   }
-  // Houd de volgorde van de ingeladen MQS-catalogus (tablet) aan.
-  // Groepen: gewone MQS, daarna alle toffee/toffe, daarna alle 500 gram.
-  // 500 gram heeft voorrang, ook wanneer de naam tevens toffee bevat.
   const is500=row=>/(?:^|[^0-9])500\s*(?:gr|gram|g)?(?=$|[^a-z0-9])/i.test(row.name);
+  const is2kg=row=>/(?:^|[^0-9])2\s*(?:kg|kilo)(?=$|[^a-z0-9])/i.test(row.name);
   const isToffee=row=>/toff(?:ee|e|ees)?/i.test(row.name);
-  const group=row=>is500(row)?2:isToffee(row)?1:0;
-  return rows.map((row,index)=>({...row,_tabletOrder:index}))
-    .sort((a,b)=>group(a)-group(b)||a._tabletOrder-b._tabletOrder)
+  const isPrune=row=>/pruim(?:en)?\s*chine(?:es|se|es?e)?|pruimen\s*chinees/i.test(row.name);
+  // 500 GR: uitsluitend Toffee, Pruimen Chinees, Anis Candy en Hacks.
+  const isAnis=row=>/anis\s*candy/i.test(row.name);
+  const isHacks=row=>/hacks/i.test(row.name);
+  const filtered=rows.filter(row=>!is500(row)||isToffee(row)||isPrune(row)||isAnis(row)||isHacks(row));
+  const group=row=>is500(row)?3:is2kg(row)?1:isToffee(row)?2:0;
+  return filtered.map((row,index)=>({...row,_tabletOrder:index,group:group(row)}))
+    .sort((a,b)=>a.group-b.group||a._tabletOrder-b._tabletOrder)
     .map(({_tabletOrder,...row})=>row);
 }
 function mqsPrintPage(availableOnly){
   const rows=mqsSheetRows(availableOnly);
   if(!rows.length){alert('Geen MQS-producten gevonden voor deze lijst.');return;}
   const escapeHtml=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  // 3 kolomgroepen, alfabetisch doorlopend van links naar rechts, volgende rij.
   const now=new Date();
   const printDay=String(now.getDate()).padStart(2,'0')+'-'+String(now.getMonth()+1).padStart(2,'0');
   const printYear=now.getFullYear();
-  const perPage=60, htmlPages=[];
-  for(let start=0;start<rows.length;start+=perPage){
-    const slice=rows.slice(start,start+perPage);
+  const groupNames=['MQS','2 KG','TOFFEE','500 GR'];
+  // Sectiekoppen nemen een volledige tabelrij in en worden nooit tussen producten geplaatst.
+  const lines=[];
+  let previous=-1;
+  for(let i=0;i<rows.length;){
+    const group=rows[i].group;
+    if(group!==previous){lines.push({heading:groupNames[group]});previous=group;}
+    const items=[];
+    while(i<rows.length && rows[i].group===group && items.length<3)items.push(rows[i++]);
+    lines.push({items});
+  }
+  const perPage=20,htmlPages=[];
+  for(let start=0;start<lines.length;start+=perPage){
+    const slice=lines.slice(start,start+perPage);
     let body='';
-    for(let i=0;i<20;i++){
+    for(const line of slice){
+      if(line.heading){body+='<tr class="section-title"><td colspan="15">'+escapeHtml(line.heading)+'</td></tr>';continue;}
       body+='<tr>';
       for(let col=0;col<3;col++){
-        const p=slice[i*3+col];
+        const p=line.items[col];
         body+='<td class="code">'+(p?escapeHtml(p.code):'')+'</td><td class="name">'+(p?escapeHtml(p.name):'')+'</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>';
       }
       body+='</tr>';
     }
+    for(let i=slice.length;i<perPage;i++)body+='<tr>'+Array(3).fill('<td class="code"></td><td class="name"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>').join('')+'</tr>';
     htmlPages.push('<section class="page"><div class="heading"><span class="print-day">'+printDay+'</span><span class="write-date">Date: ______ - ______ - '+printYear+'</span><span class="write-name">Name: ______________________________</span></div><table><thead><tr>'+Array(3).fill('<th class="code">Code</th><th class="name">Product</th><th colspan="3">&nbsp;</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></section>');
   }
-  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:bold;font-size:11px;margin:0 0 5px;white-space:nowrap}.heading .print-day{margin-right:15px}.heading .write-date{margin:auto}.heading .write-name{margin-left:auto}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;height:8.6mm;padding:2px 3px;font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
+  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:bold;font-size:11px;margin:0 0 5px;white-space:nowrap}.heading .print-day{margin-right:15px}.heading .write-date{margin:auto}.heading .write-name{margin-left:auto}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;height:8.6mm;padding:2px 3px;font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}.section-title td{background:#ddd;font-size:10px;font-weight:900;padding-left:8px}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
   const blob=new Blob([page],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob);
   const win=window.open(url,'_blank');
   if(!win){alert('Sta pop-ups toe om de printlijst te openen.');}
@@ -5051,9 +5066,10 @@ function mqsPrintPage(availableOnly){
 function mqsDownloadExcel(){
   const a=mqsSheetRows(true),b=mqsSheetRows(false);
   const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  const lines=[['Status','Code','Product','','','']];
-  a.forEach(p=>lines.push(['Beschikbaar',p.code,p.name,'','','']));
-  b.forEach(p=>lines.push(['Niet beschikbaar',p.code,p.name,'','','']));
+  const lines=[['Status','Groep','Code','Product','','','']];
+  const groupNames=['MQS','2 KG','TOFFEE','500 GR'];
+  a.forEach(p=>lines.push(['Beschikbaar',groupNames[p.group],p.code,p.name,'','','']));
+  b.forEach(p=>lines.push(['Niet beschikbaar',groupNames[p.group],p.code,p.name,'','','']));
   const csv='\ufeff'+lines.map(r=>r.map(quote).join(';')).join('\r\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const link=document.createElement('a');link.href=url;link.download='MQS-productlijst.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
