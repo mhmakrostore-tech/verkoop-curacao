@@ -364,7 +364,7 @@ window.addEventListener('unhandledrejection',function(e){
 <p><label><input id="internalOnly" type="checkbox" style="width:auto"> Alleen intern / niet in catalogus</label></p>
 <p class="meta">Intern product: blijft zichtbaar bij Meldingen en Producten beheren, maar niet voor klanten in de Catalogus.</p>
 <button id="saveBtn" class="btn primary">Opslaan</button> <button id="cancelBtn" class="btn light hidden">Annuleren</button><div id="formMsg" class="message"></div></div>
-<div class="panel" id="mqsPrintTools"><h2>MQS – Excel & A4 lijst</h2><p class="meta">Alfabetische productlijst uit de actuele catalogus. Drie groepen naast elkaar, drie lege schrijfvakjes, A4 liggend en dubbelzijdig. Niet-beschikbare producten worden apart gehouden.</p><div class="button-row"><button id="mqsPrintAvailable" class="btn primary" type="button">Print beschikbare MQS (A4)</button> <button id="mqsExportCsv" class="btn secondary" type="button">Excel-lijst downloaden</button> <button id="mqsPrintUnavailable" class="btn light" type="button">Print niet beschikbaar</button></div><div id="mqsPrintMessage" class="message"></div></div>
+<div class="panel" id="mqsPrintTools"><h2>MQS – Excel & A4 lijst</h2><p class="meta">Productlijst in tabletvolgorde: eerst MQS, daarna toffee (zonder 500 gram), als laatste alle 500 gram inclusief toffee 500 gram. Drie groepen naast elkaar, drie lege schrijfvakjes, A4 liggend en dubbelzijdig. Niet-beschikbare producten worden apart gehouden.</p><div class="button-row"><button id="mqsPrintAvailable" class="btn primary" type="button">Print beschikbare MQS (A4)</button> <button id="mqsExportCsv" class="btn secondary" type="button">Excel-lijst downloaden</button> <button id="mqsPrintUnavailable" class="btn light" type="button">Print niet beschikbaar</button></div><div id="mqsPrintMessage" class="message"></div></div>
 <div class="panel"><h2>Producten beheren</h2>
 <div class="catalog-admin-filter" id="adminCatalogFilter">
   <button type="button" class="btn light active" data-filter="all">ALLE</button>
@@ -5010,7 +5010,15 @@ function mqsSheetRows(availableOnly){
     if(crt&&crt!==code)rows.push({code:crt,name:(variant?name+' '+variant:name)+' CRT'});
     if(!code&&!crt)rows.push({code:'',name:variant?name+' '+variant:name});
   }
-  return rows.sort((a,b)=>a.name.localeCompare(b.name,'nl',{sensitivity:'base'})||a.code.localeCompare(b.code,'nl',{numeric:true}));
+  // Houd de volgorde van de ingeladen MQS-catalogus (tablet) aan.
+  // Groepen: gewone MQS, daarna alle toffee/toffe, daarna alle 500 gram.
+  // 500 gram heeft voorrang, ook wanneer de naam tevens toffee bevat.
+  const is500=row=>/(?:^|[^0-9])500\s*(?:gr|gram|g)(?=$|[^a-z0-9])/i.test(row.name);
+  const isToffee=row=>/toff(?:ee|e|ees)?/i.test(row.name);
+  const group=row=>is500(row)?2:isToffee(row)?1:0;
+  return rows.map((row,index)=>({...row,_tabletOrder:index}))
+    .sort((a,b)=>group(a)-group(b)||a._tabletOrder-b._tabletOrder)
+    .map(({_tabletOrder,...row})=>row);
 }
 function mqsPrintPage(availableOnly){
   const rows=mqsSheetRows(availableOnly);
