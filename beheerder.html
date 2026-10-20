@@ -364,6 +364,7 @@ window.addEventListener('unhandledrejection',function(e){
 <p><label><input id="internalOnly" type="checkbox" style="width:auto"> Alleen intern / niet in catalogus</label></p>
 <p class="meta">Intern product: blijft zichtbaar bij Meldingen en Producten beheren, maar niet voor klanten in de Catalogus.</p>
 <button id="saveBtn" class="btn primary">Opslaan</button> <button id="cancelBtn" class="btn light hidden">Annuleren</button><div id="formMsg" class="message"></div></div>
+<div class="panel" id="mqsPrintTools"><h2>MQS – Excel & A4 lijst</h2><p class="meta">Alfabetische productlijst uit de actuele catalogus. Drie groepen naast elkaar, drie lege schrijfvakjes, A4 liggend en dubbelzijdig. Niet-beschikbare producten worden apart gehouden.</p><div class="button-row"><button id="mqsPrintAvailable" class="btn primary" type="button">Print beschikbare MQS (A4)</button> <button id="mqsExportCsv" class="btn secondary" type="button">Excel-lijst downloaden</button> <button id="mqsPrintUnavailable" class="btn light" type="button">Print niet beschikbaar</button></div><div id="mqsPrintMessage" class="message"></div></div>
 <div class="panel"><h2>Producten beheren</h2>
 <div class="catalog-admin-filter" id="adminCatalogFilter">
   <button type="button" class="btn light active" data-filter="all">ALLE</button>
@@ -4994,6 +4995,62 @@ if(!window.__adminAvailabilityObserver){
 // CREDIT is an extra option and can be combined with E.C / D.A / D.A COOL.
 document.getElementById('catalogCreditOption')?.addEventListener('change',()=>buildOrderPreview());
 document.getElementById('saleCreditOption')?.addEventListener('change',()=>updateSaleTotal());
+
+// MQS print/export: uitsluitend de reeds ingeladen Firestore catalogus, geen extra rechten.
+function mqsSheetRows(availableOnly){
+  const entries=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS' && p.internalOnly!==true && (availableOnly?p.available!==false:p.available===false));
+  const rows=[];
+  for(const p of entries){
+    const name=String(p.name||'').trim();
+    // MQS kan meerdere formaten met afzonderlijke EACH/CRT codes hebben.
+    const variant=String(p.mqsVariant||p.mqsFormat||p.mqsSize||'').trim();
+    const code=String(p.codeEach||p.code||p.barcode||'').trim();
+    const crt=String(p.codeCrt||'').trim();
+    if(code)rows.push({code,name:variant?name+' '+variant:name});
+    if(crt&&crt!==code)rows.push({code:crt,name:(variant?name+' '+variant:name)+' CRT'});
+    if(!code&&!crt)rows.push({code:'',name:variant?name+' '+variant:name});
+  }
+  return rows.sort((a,b)=>a.name.localeCompare(b.name,'nl',{sensitivity:'base'})||a.code.localeCompare(b.code,'nl',{numeric:true}));
+}
+function mqsPrintPage(availableOnly){
+  const rows=mqsSheetRows(availableOnly);
+  if(!rows.length){alert('Geen MQS-producten gevonden voor deze lijst.');return;}
+  const escapeHtml=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // 3 kolomgroepen, alfabetisch doorlopend van links naar rechts, volgende rij.
+  const perPage=60, htmlPages=[];
+  for(let start=0;start<rows.length;start+=perPage){
+    const slice=rows.slice(start,start+perPage);
+    let body='';
+    for(let i=0;i<20;i++){
+      body+='<tr>';
+      for(let col=0;col<3;col++){
+        const p=slice[i*3+col];
+        body+='<td class="code">'+(p?escapeHtml(p.code):'')+'</td><td class="name">'+(p?escapeHtml(p.name):'')+'</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>';
+      }
+      body+='</tr>';
+    }
+    htmlPages.push('<section class="page"><div class="heading">MQS – '+(availableOnly?'BESCHIKBARE PRODUCTEN':'NIET BESCHIKBAAR')+' <span>Pagina '+(htmlPages.length+1)+'</span></div><table><thead><tr>'+Array(3).fill('<th class="code">Code</th><th class="name">Product</th><th colspan="3">&nbsp;</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></section>');
+  }
+  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{font-weight:bold;font-size:11px;margin:0 0 5px}.heading span{float:right}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;height:8.6mm;padding:2px 3px;font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
+  const blob=new Blob([page],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob);
+  const win=window.open(url,'_blank');
+  if(!win){alert('Sta pop-ups toe om de printlijst te openen.');}
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+}
+function mqsDownloadExcel(){
+  const a=mqsSheetRows(true),b=mqsSheetRows(false);
+  const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const lines=[['Status','Code','Product','','','']];
+  a.forEach(p=>lines.push(['Beschikbaar',p.code,p.name,'','','']));
+  b.forEach(p=>lines.push(['Niet beschikbaar',p.code,p.name,'','','']));
+  const csv='\ufeff'+lines.map(r=>r.map(quote).join(';')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const link=document.createElement('a');link.href=url;link.download='MQS-productlijst.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+$('mqsPrintAvailable').addEventListener('click',()=>mqsPrintPage(true));
+$('mqsPrintUnavailable').addEventListener('click',()=>mqsPrintPage(false));
+$('mqsExportCsv').addEventListener('click',mqsDownloadExcel);
+
 </script>
 <div class="quick-search-action no-print">
   <button id="quickSearchBtn" class="floating-btn" type="button" title="Snel zoeken" aria-label="Snel zoeken">🔎</button>
