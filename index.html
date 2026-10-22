@@ -5213,9 +5213,16 @@ function fillFloatingCategoryMenu(){
       const catalogTab=document.querySelector('[data-tab="catalog"]');
       if(catalogTab && !document.getElementById('catalog')?.classList.contains('active'))catalogTab.click();
       if($('search'))$('search').value='';
-      if($('category'))$('category').value=name;
+      // Alleen naar de gekozen categorie springen; de overige categorieën blijven zichtbaar.
+      if($('category'))$('category').value='all';
       render();
-      window.scrollTo({top:0,behavior:'instant'});
+      const targetId='cat-'+name.replace(/[^a-z0-9]/gi,'-').toLowerCase();
+      const target=document.getElementById(targetId);
+      if(target){
+        // Open de gekozen categorie indien die dicht staat.
+        if(target.classList.contains('collapsed'))target.querySelector('.category-header')?.click();
+        target.scrollIntoView({behavior:'instant',block:'start'});
+      }
     };
     list.appendChild(b);
   }
