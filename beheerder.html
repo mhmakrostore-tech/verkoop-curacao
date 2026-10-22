@@ -3869,7 +3869,8 @@ function render(){
     (groups[category]??=[]).push(p);
   }
 
-  const categoryNames=Object.keys(groups).sort((x,y)=>{if(x.toUpperCase()==='MQS')return -1;if(y.toUpperCase()==='MQS')return 1;return x.localeCompare(y,'nl');});
+  const configuredCategories=allCategoryNames();
+  const categoryNames=Object.keys(groups).sort((a,b)=>{const ai=configuredCategories.indexOf(normalizeCategoryName(a)),bi=configuredCategories.indexOf(normalizeCategoryName(b));return (ai<0?9999:ai)-(bi<0?9999:bi)||a.localeCompare(b,'nl');});
   $('grid').innerHTML='';
   $('categoryJumpbar').innerHTML='';
 
