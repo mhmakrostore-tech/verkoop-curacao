@@ -3233,7 +3233,7 @@ function startCatalogListener(){
     sharedTabletCategoryOrder=Array.isArray(data.order)
       ? [...new Set(data.order.map(normalizeCategoryName).filter(Boolean))] : [];
     if(products.length){refreshCategorySelects();render();}
-  },error=>console.warn('Gedeelde categorievolgorde niet leesbaar:',error));
+  },error=>{console.warn('Gedeelde categorievolgorde niet leesbaar:',error);const status=$('offlineOrderStatus');if(status){status.textContent='Let op: categorievolgorde van Beheerder kan niet worden geladen. Controleer Firebase-leestoegang voor publicSettings/categoryConfiguration.';status.style.color='#b91c1c';}});
   onSnapshot(
     collection(db,'catalogProducts'),
     s=>{
@@ -5205,7 +5205,7 @@ function fillFloatingCategoryMenu(){
   const list=$('categoryFloatList');
   if(!list)return;
   const names=[...new Set(products.filter(p=>p.internalOnly!==true).map(p=>String(p.category||'OVERIG').trim()||'OVERIG'))]
-    .sort((a,b)=>{if(a.toUpperCase()==='MQS')return -1;if(b.toUpperCase()==='MQS')return 1;return a.localeCompare(b,'nl',{sensitivity:'base'});});
+    .sort(categorySort);
   list.innerHTML='';
   for(const name of names){
     const b=document.createElement('button');
