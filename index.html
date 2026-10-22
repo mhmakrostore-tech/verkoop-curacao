@@ -4062,6 +4062,17 @@ async function deleteCategory(name){
 
 function categories(){refreshCategorySelects();}
 
+function tabletVisibleWeight(p){
+  const text=weightText(p);
+  if(text)return text;
+  const actual=Number(p.actualWeightKg||0);
+  if(actual>0)return `${actual.toLocaleString('nl-NL',{maximumFractionDigits:3})} KG`;
+  const format=String(p.mqsFormat||'').toUpperCase();
+  if(format==='1KG')return '1 KG';
+  if(format==='2KG')return '2 KG';
+  if(format==='500')return '500 gr';
+  return '';
+}
 function mqsVariantLabel(p){
   const key=mqsFormatKeyForDisplay(p);
   if(key==='mqs')return 'MQS';
@@ -4072,7 +4083,7 @@ function mqsVariantLabel(p){
     const actual=Number(p.actualWeightKg||0);
     return actual>0?`KG – ${Number(actual).toLocaleString('nl-NL',{maximumFractionDigits:3})} KG`:'KG';
   }
-  return 'MQS';
+  return tabletVisibleWeight(p)||'MQS';
 }
 function mqsGroupKey(p){
   return String(p.name||'').trim().toLowerCase();
@@ -4330,6 +4341,7 @@ function render(){
                 ${price>0?`<div class="price-line"><span class="price-label">${mqsVariantLabel(p).toUpperCase()}</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
                 ${crtPrice>0?`<div class="price-line"><span class="price-label">CRT</span><strong>CG ${crtPrice.toFixed(2)}</strong></div>`:''}
               </div>
+              ${tabletVisibleWeight(p) && !mqsVariantLabel(p).toLowerCase().includes(tabletVisibleWeight(p).toLowerCase())?`<div class="product-weight">Gewicht: ${safe(tabletVisibleWeight(p))}</div>`:''}
               <div class="mqs-variant-meta">
                 ${(code||hasCrtCount)?`<div>${code?`${mqsVariantLabel(p).toUpperCase()} Code: ${safe(code)}`:''}${code&&hasCrtCount?' &nbsp;|&nbsp; ':''}${hasCrtCount?`Aantal CRT: ${crt}`:''}</div>`:''}
                 ${crtCode?`<div>CRT Code: ${safe(crtCode)}</div>`:''}
@@ -4401,6 +4413,7 @@ function render(){
           <div class="body">
             <div class="cat">${safe(p.category||'OVERIG')}</div>
             <h2>${safe(productDisplayName(p))}</h2>
+            ${tabletVisibleWeight(p) && !productDisplayName(p).toLowerCase().includes(tabletVisibleWeight(p).toLowerCase())?`<div class="product-weight">Gewicht: ${safe(tabletVisibleWeight(p))}</div>`:''}
             <div class="meta">${normalizedCodes(p).each?`${String(p.category||'').trim().toUpperCase()==='MQS'?'MQS':'EACH'} Code: ${safe(normalizedCodes(p).each)}<br>`:''}${normalizedCodes(p).p12?`P12 Code: ${safe(normalizedCodes(p).p12)}<br>`:''}${normalizedCodes(p).pack?`P${normalizedPrices(p).unitsPerPack||''} Code: ${safe(normalizedCodes(p).pack)}<br>`:''}${normalizedCodes(p).crt?`CRT Code: ${safe(normalizedCodes(p).crt)}<br>`:''}${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
             ${String(p.notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String(p.notes).trim())}</div>`:''}
             ${productPriceHtml(p)}
