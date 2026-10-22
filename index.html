@@ -3233,6 +3233,9 @@ function startCatalogListener(){
     sharedTabletCategoryOrder=Array.isArray(data.order)
       ? [...new Set(data.order.map(normalizeCategoryName).filter(Boolean))] : [];
     if(products.length){refreshCategorySelects();render();}
+    if(!sharedTabletCategoryOrder.length){
+      console.warn('Categorievolgorde ontbreekt in publicSettings/categoryConfiguration; tablet gebruikt fallback met SINTERKLAAS eerst.');
+    }
   },error=>{console.warn('Gedeelde categorievolgorde niet leesbaar:',error);const status=$('offlineOrderStatus');if(status){status.textContent='Let op: categorievolgorde van Beheerder kan niet worden geladen. Controleer Firebase-leestoegang voor publicSettings/categoryConfiguration.';status.style.color='#b91c1c';}});
   onSnapshot(
     collection(db,'catalogProducts'),
@@ -3934,6 +3937,10 @@ function categorySort(a,b){
     if(x===pinnedCategory && y!==pinnedCategory)return -1;
     if(y===pinnedCategory && x!==pinnedCategory)return 1;
   }
+  // De PC heeft SINTERKLAAS vooraan. Bij ontbrekende/onvolledige
+  // gedeelde volgorde mag de oude tabletprioriteit MQS niet voorrang krijgen.
+  if(x==='SINTERKLAAS' && y!=='SINTERKLAAS')return -1;
+  if(y==='SINTERKLAAS' && x!=='SINTERKLAAS')return 1;
   const priority=['MAKRO','MAGAZIJN','MQS','TOPPERS'];
   const px=priority.indexOf(x),py=priority.indexOf(y);
   if(px!==-1||py!==-1)return px===-1?1:py===-1?-1:px-py;
