@@ -731,7 +731,7 @@ import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,co
 
 const firebaseConfig={apiKey:"AIzaSyAzN8MArYYQhIdhKkZwAI0EiBZla57l-Jg",authDomain:"verkoop-curacao.firebaseapp.com",projectId:"verkoop-curacao",storageBucket:"verkoop-curacao.firebasestorage.app",messagingSenderId:"469707957925",appId:"1:469707957925:web:ab89dc2f2f04ea61188f4c"};
 const OWNER='makro@maxiwholesale.com',ADMIN_EMAILS=[OWNER,'mh.makrostore@gmail.com'],SALES_EMAIL='order@curacao.com',appFirebase=initializeApp(firebaseConfig),auth=getAuth(appFirebase),db=initializeFirestore(appFirebase,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}),$=id=>document.getElementById(id);
-let pinnedCategory='',products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',toppersExamplePhoto='',toppersExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
+let sharedTabletCategoryOrder=[],pinnedCategory='',products=[],sales=[],customers=[],tabletUsers=[],counterpointHistory=[],counterpointMeta=null,counterpointLoaded=false,counterpointLoading=false,currentRole='guest',packageSettings=null,giveawaySettings={entries:[]},mqsExamplePhoto='',mqsExamplePhotoDraft='',toppersExamplePhoto='',toppersExamplePhotoDraft='',packageLastTotals=[],photoData='',html5QrCode=null,scannerRunning=false,catalogQrCode=null,catalogScannerRunning=false,makroQrCode=null,makroScannerRunning=false,warehouseQrCode=null,warehouseScannerRunning=false,toppersQrCode=null,toppersScannerRunning=false,catalogCart={},editingSaleId='',editingMQSOriginalName='',draftPickOrderNumber='';
 let toppersExampleText='';
 const safe=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const msg=(el,t,e=false)=>{el.textContent=t;el.style.color=e?'#b91c1c':'#15803d'};
@@ -3226,6 +3226,14 @@ function watchOfflineOrders(){
  },e=>console.warn('Synchronisatiestatus:',e));
 }
 function startCatalogListener(){
+  // Alleen lezen: categorieën en hun volgorde worden door Beheerder beheerd.
+  // Deze listener verandert niets aan de categorieknoppen of scrollfunctie.
+  onSnapshot(doc(db,'publicSettings','categoryConfiguration'),snapshot=>{
+    const data=snapshot.exists()?snapshot.data():{};
+    sharedTabletCategoryOrder=Array.isArray(data.order)
+      ? [...new Set(data.order.map(normalizeCategoryName).filter(Boolean))] : [];
+    if(products.length){refreshCategorySelects();render();}
+  },error=>console.warn('Gedeelde categorievolgorde niet leesbaar:',error));
   onSnapshot(
     collection(db,'catalogProducts'),
     s=>{
@@ -3919,12 +3927,16 @@ async function migrateAllToppersToUppercase(){
 
 function categorySort(a,b){
   const x=normalizeCategoryName(a),y=normalizeCategoryName(b);
+  // Gebruik dezelfde centrale volgorde als Beheerder > Product toevoegen.
+  const ai=sharedTabletCategoryOrder.indexOf(x),bi=sharedTabletCategoryOrder.indexOf(y);
+  if(ai!==-1||bi!==-1)return ai===-1?1:bi===-1?-1:ai-bi;
   if(pinnedCategory){
     if(x===pinnedCategory && y!==pinnedCategory)return -1;
     if(y===pinnedCategory && x!==pinnedCategory)return 1;
   }
-  if(x==='MQS' && y!=='MQS')return -1;
-  if(y==='MQS' && x!=='MQS')return 1;
+  const priority=['MAKRO','MAGAZIJN','MQS','TOPPERS'];
+  const px=priority.indexOf(x),py=priority.indexOf(y);
+  if(px!==-1||py!==-1)return px===-1?1:py===-1?-1:px-py;
   return x.localeCompare(y,'nl',{sensitivity:'base'});
 }
 async function setFirstCategory(name){
@@ -3961,17 +3973,7 @@ function showCategoryAgain(name){
 function allCategoryNames(){
   const fromProducts=products.map(p=>normalizeCategoryName(p.category||'OVERIG')).filter(Boolean);
   const all=[...new Set([...fromProducts.map(normalizeCategoryName),...savedExtraCategories().map(normalizeCategoryName),'MAKRO','MAGAZIJN','MQS','TOPPERS','DIVERSEN','OVERIG'])].filter(c=>!hiddenCategoryNames().includes(c));
-  return all.sort((a,b)=>{
-    if(a==='MAKRO')return -1;
-    if(b==='MAKRO')return 1;
-    if(a==='MAGAZIJN')return -1;
-    if(b==='MAGAZIJN')return 1;
-    if(a==='MQS')return -1;
-    if(b==='MQS')return 1;
-    if(a==='TOPPERS')return -1;
-    if(b==='TOPPERS')return 1;
-    return a.localeCompare(b,'nl',{sensitivity:'base'});
-  });
+  return all.sort(categorySort);
 }
 function refreshCategorySelects(){
   const names=allCategoryNames();
