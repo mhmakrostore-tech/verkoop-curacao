@@ -85,6 +85,13 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 .mqs-example-admin{margin:0 0 16px;padding:14px;border:1px dashed var(--border);border-radius:14px;background:#fff}
 .mqs-example-admin img{width:150px;max-height:190px;object-fit:contain;border-radius:12px;display:block;margin-top:10px}
 .toppers-example-text{padding:12px 10px;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45;font-weight:600;color:#1f2937}
+<style>
+.category-search-bar{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.category-search-bar .category-search{flex:1;min-width:0;margin-bottom:0}
+.category-search-bar .clear-category-search{white-space:nowrap}
+.toolbar .scan-line{grid-template-columns:minmax(0,1fr) auto auto}
+@media(max-width:650px){.toolbar .scan-line{grid-template-columns:minmax(0,1fr) auto}.toolbar .scan-line #catalogScanBtn{grid-column:1/-1}}
+</style>
 </style>
 
 <style>html,body{scroll-behavior:auto!important}</style>
@@ -144,7 +151,7 @@ window.addEventListener('unhandledrejection',function(e){
 <div id="offlineOrderStatus" class="panel" style="padding:10px 14px;margin-bottom:12px;font-weight:bold" aria-live="polite">Verbinding controleren…</div>
 <div id="catalogScanReader" class="hidden" style="max-width:520px;margin:0 auto 14px"></div>
 <button id="stopCatalogScanBtn" type="button" class="btn light hidden" style="margin-bottom:14px">Stop scanner</button>
-<div class="toolbar"><div class="scan-line"><input id="search" type="search" placeholder="Zoek product, code of barcode…"><button id="catalogScanBtn" type="button" class="btn secondary">Scan barcode</button></div><select id="category"><option value="all">Alle categorieën</option></select><select id="availability"><option value="available">Alleen beschikbaar</option><option value="all">Alles tonen</option><option value="soldout">Uitverkocht</option></select></div><div id="categoryJumpbar" class="category-jumpbar"></div><div id="grid"></div></section>
+<div class="toolbar"><div class="scan-line"><input id="search" type="search" placeholder="Zoek product, code of barcode…"><button id="clearCatalogSearchBtn" type="button" class="btn light" title="Zoekopdracht wissen">✕ Wissen</button><button id="catalogScanBtn" type="button" class="btn secondary">Scan barcode</button></div><select id="category"><option value="all">Alle categorieën</option></select><select id="availability"><option value="available">Alleen beschikbaar</option><option value="all">Alles tonen</option><option value="soldout">Uitverkocht</option></select></div><div id="categoryJumpbar" class="category-jumpbar"></div><div id="grid"></div></section>
 <section id="shortDate" class="tab"><div class="panel">
 <h2>Korte Datum – factuur lezen</h2><p class="meta">Maak een foto of kies een bestaande foto. Controleer altijd de EXP-datums: de factuurdatum is niet automatisch een vervaldatum. De foto wordt alleen lokaal verwerkt; voor herkenning wordt een OCR-bibliotheek geladen via internet.</p>
 <label>Factuurfoto</label><input id="sdPhoto" type="file" accept="image/*" capture="environment">
@@ -4091,6 +4098,13 @@ async function deleteMQSGroupByName(name){
   }
 }
 
+document.addEventListener('click',e=>{
+  if(e.target.closest('#clearCatalogSearchBtn')){
+    const input=document.getElementById('search');
+    if(input){input.value='';render();input.focus();}
+  }
+});
+
 function clearCatalogSearchForNextProduct(){
   const searchEl=$('search');
   if(searchEl&&searchEl.value)searchEl.value='';
@@ -4244,7 +4258,7 @@ function render(){
       <span class="category-chevron">▼</span>
     </button>
     <div class="category-content">
-      <input class="category-search" type="search" placeholder="Zoek in ${safe(category)}…">
+      <div class="category-search-bar"><input class="category-search" type="search" placeholder="Zoek in ${safe(category)}…"><button class="clear-category-search btn light" type="button">✕ Wissen</button></div>
       <div class="category-products"></div>
     </div>`;
 
@@ -4339,26 +4353,20 @@ function render(){
           container.appendChild(card);
 
           card.querySelectorAll('.mqs-order-qty').forEach(input=>{
-            input.addEventListener('focus',clearCatalogSearchForNextProduct);
+            input.addEventListener('blur',()=>restoreCatalogAfterSelection(section));
             input.oninput=()=>{
               const unit=card.querySelector(`.mqs-order-unit[data-product="${input.dataset.product}"]`)?.value||'each';
               setCatalogCartItem(input.dataset.product,unit,input.value);
             };
           });
           card.querySelectorAll('.mqs-order-unit').forEach(select=>{
-            select.addEventListener('focus',clearCatalogSearchForNextProduct);
+            select.addEventListener('blur',()=>restoreCatalogAfterSelection(section));
             select.onchange=()=>{
               const input=card.querySelector(`.mqs-order-qty[data-product="${select.dataset.product}"]`);
               setCatalogCartItem(select.dataset.product,select.value,input?.value||0);
             };
           });
-          card.addEventListener('click',e=>{
-            if(!e.target.closest('.product-admin-actions')){
-              clearCatalogSearchForNextProduct();
-              const localSearch=card.closest('.category-section')?.querySelector('.category-search');
-              if(localSearch)localSearch.value='';
-            }
-          });
+
           card.querySelector('.edit-mqs-group').onclick=()=>edit(first.id,true);
           card.querySelector('.duplicate-mqs-group').onclick=()=>duplicateProduct(first.id);
           card.querySelector('.delete-mqs-group').onclick=()=>deleteMQSGroupByName(mqsGroupDisplayName(group));
@@ -4407,17 +4415,11 @@ function render(){
         else if(unit.options.length)unit.value=unit.options[0].value;
 
         const sync=()=>setCatalogCartItem(p.id,unit.value,qty.value);
-        unit.addEventListener('focus',clearCatalogSearchForNextProduct);
-        qty.addEventListener('focus',clearCatalogSearchForNextProduct);
+        unit.addEventListener('blur',()=>restoreCatalogAfterSelection(section));
+        qty.addEventListener('blur',()=>restoreCatalogAfterSelection(section));
         unit.onchange=sync;
         qty.oninput=sync;
-        card.addEventListener('click',e=>{
-          if(!e.target.closest('.product-admin-actions')){
-            clearCatalogSearchForNextProduct();
-            const localSearch=card.closest('.category-section')?.querySelector('.category-search');
-            if(localSearch)localSearch.value='';
-          }
-        });
+
         card.querySelector('.edit-product-card').onclick=()=>edit(p.id,true);
         card.querySelector('.duplicate-product-card').onclick=()=>duplicateProduct(p.id);
         card.querySelector('.delete-product-card').onclick=()=>deleteProductById(p.id);
@@ -4429,6 +4431,18 @@ function render(){
       if(pending&&!pending.rendered){pending.render();pending.rendered=true;}
       section.classList.toggle('collapsed');
       localStorage.setItem('msfkCategory:'+category,section.classList.contains('collapsed')?'closed':'open');
+    };
+    section.querySelector('.clear-category-search').onclick=()=>{
+      section.querySelector('.category-search').value='';
+      renderProductsInCategory('');
+    };
+    const restoreCatalogAfterSelection=(currentSection)=>{
+      // Na het invullen en verlaten van het aantalveld: alle producten terug.
+      if(!currentSection.isConnected)return;
+      const local=currentSection.querySelector('.category-search');
+      const global=$('search');
+      if(global?.value){global.value='';render();return;}
+      if(local?.value){local.value='';renderProductsInCategory('');}
     };
     section.querySelector('.category-search').oninput=e=>{
       const pending=deferredCategoryRenders.find(entry=>entry.section===section);
