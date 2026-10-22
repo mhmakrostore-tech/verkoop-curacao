@@ -1243,7 +1243,10 @@ function updateMQSWeightUI(){
   $('toppersWeightNote').classList.toggle('hidden',!isToppers);
   $('toppersScannerBox').classList.toggle('hidden',!isToppers);
   $('genericScannerBox').classList.toggle('hidden',isToppers);
-  if(isMQS&&$('mqsProductName')?.value.trim())loadMQSBulkValues();
+  if(isMQS&&$('mqsProductName')?.value.trim()){
+    const wanted=String($('mqsProductName').value).trim().toLowerCase();
+    if(products.some(p=>String(p.category||'').trim().toUpperCase()==='MQS' && String(p.name||'').trim().toLowerCase()===wanted))loadMQSBulkValues();
+  }
   if(isMakro||isWarehouse){
     $('internalOnly').checked=true;
     $('available').checked=false;
@@ -4623,7 +4626,14 @@ $('warehouseScanBtn').onclick=startWarehouseScanner;$('warehouseStopScanBtn').on
 $('makroScanBtn').onclick=startMakroScanner;$('makroStopScanBtn').onclick=stopMakroScanner;
 $('catalogScanBtn').onclick=startCatalogScanner;$('stopCatalogScanBtn').onclick=stopCatalogScanner;
 
-$('mqsProductName').addEventListener('change',loadMQSBulkValues);
+// Vul bestaande MQS-gegevens alleen in wanneer de naam exact overeenkomt.
+// Bij een NIEUWE naam mogen reeds ingevoerde codes, prijzen en EXP niet verdwijnen.
+$('mqsProductName').addEventListener('change',()=>{
+  const wanted=String($('mqsProductName').value||'').trim().toLowerCase();
+  if(wanted && products.some(p=>String(p.category||'').trim().toUpperCase()==='MQS' && String(p.name||'').trim().toLowerCase()===wanted)){
+    loadMQSBulkValues();
+  }
+});
 $('mqsProductName').addEventListener('input',()=>{
   const wanted=String($('mqsProductName').value||'').trim().toLowerCase();
   const exists=products.some(p=>String(p.category||'').trim().toUpperCase()==='MQS'&&String(p.name||'').trim().toLowerCase()===wanted);
