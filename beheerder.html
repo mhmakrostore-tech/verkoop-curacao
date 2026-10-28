@@ -5114,8 +5114,17 @@ function mqsSheetRows(availableOnly){
   const isAnis=row=>/anis\s*candy/i.test(row.name);
   const isHacks=row=>/hacks/i.test(row.name);
   const filtered=rows.filter(row=>!is500(row)||isToffee(row)||isPrune(row)||isAnis(row)||isHacks(row));
+  // Verwijder dubbele printregels met exact dezelfde productcode en naam.
+  // EACH en CRT met verschillende codes blijven afzonderlijk zichtbaar.
+  const seenPrintRows=new Set();
+  const uniqueRows=filtered.filter(row=>{
+    const key=String(row.code||'').trim().toUpperCase()+'\u0000'+String(row.name||'').trim().replace(/\s+/g,' ').toUpperCase();
+    if(seenPrintRows.has(key))return false;
+    seenPrintRows.add(key);
+    return true;
+  });
   const group=row=>is500(row)?3:is2kg(row)?1:isToffee(row)?2:0;
-  return filtered.map((row,index)=>({...row,_tabletOrder:index,group:group(row)}))
+  return uniqueRows.map((row,index)=>({...row,_tabletOrder:index,group:group(row)}))
     .sort((a,b)=>a.group-b.group||mqsAlphabeticalName(a.name).localeCompare(mqsAlphabeticalName(b.name),'nl',{sensitivity:'base',numeric:true})||a.code.localeCompare(b.code,'nl',{numeric:true}))
     .map(({_tabletOrder,...row})=>row);
 }
