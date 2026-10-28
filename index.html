@@ -4510,20 +4510,7 @@ function render(){
         unit.onchange=sync;
         qty.oninput=sync;
 
-        const specialToggle=card.querySelector('.special-toggle');
-        specialToggle.onchange=()=>{card.querySelector('.special-fields').style.display=specialToggle.checked?'grid':'none';};
-        card.querySelector('.special-save').onclick=async()=>{
-          const btn=card.querySelector('.special-save');btn.disabled=true;
-          const data={specialActive:specialToggle.checked,
-            specialCode:card.querySelector('.special-code').value.trim(),
-            specialQuantity:card.querySelector('.special-quantity').value.trim(),
-            specialPrice:card.querySelector('.special-price').value.trim()};
-          try{
-            await setDoc(doc(db,'catalogProducts',p.id),data,{merge:true});
-            Object.assign(p,data);btn.textContent='Opgeslagen ✓';
-          }catch(err){alert('SPECIAL opslaan mislukt: '+err.message);}
-          finally{btn.disabled=false;}
-        };
+        // SPECIAL wordt in de beheerder ingesteld; de tablet toont alleen bestelvelden.
         card.querySelector('.edit-product-card').onclick=()=>edit(p.id,true);
         card.querySelector('.duplicate-product-card').onclick=()=>duplicateProduct(p.id);
         card.querySelector('.delete-product-card').onclick=()=>deleteProductById(p.id);
