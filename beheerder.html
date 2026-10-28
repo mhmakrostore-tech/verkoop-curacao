@@ -63,7 +63,12 @@ html,body{scroll-behavior:auto!important} .category-jumpbar{scroll-behavior:auto
 @media(min-width:761px){.category-products{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}}
 </style>
 
-</head>
+<style>
+body.tablet-mode .special-admin-controls{display:none!important}
+.special-tablet-info{background:#fff1a6;border:2px solid #f59e0b;border-radius:8px;padding:6px;margin:7px 0;font-weight:800}
+.special-tablet-info strong{font-size:1.5rem;color:#d10000;letter-spacing:1px}
+.special-admin-controls input{min-width:0;width:100%;box-sizing:border-box}
+</style></head>
 <body>
 <div id="startupError" style="display:none;margin:12px;padding:12px;border:2px solid #b91c1c;border-radius:10px;background:#fff;color:#b91c1c;font-weight:700"></div>
 <script>
@@ -3970,7 +3975,16 @@ function render(){
               <h2>${safe(mqsGroupDisplayName(group))}</h2>
               ${String((group.find(p=>String(p.notes||'').trim())||{}).notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String((group.find(p=>String(p.notes||'').trim())||{}).notes||'').trim())}</div>`:''}
               <div class="mqs-variants">${variantsHtml}</div>
-              <div class="product-admin-actions">
+              <div class="special-admin-controls no-print" style="margin:9px 0;padding:9px;border:2px solid #eab308;border-radius:8px">
+              <label style="font-weight:900"><input class="special-toggle" type="checkbox" ${p.specialActive?'checked':''}> SPECIAL</label>
+              <div class="special-fields" style="display:${p.specialActive?'grid':'none'};grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px">
+                <input class="special-code" placeholder="Code" value="${safe(p.specialCode||'')}">
+                <input class="special-quantity" type="number" min="0" placeholder="Aantal" value="${safe(String(p.specialQuantity||''))}">
+                <input class="special-price" type="number" min="0" step="0.01" placeholder="Prijs CG" value="${safe(String(p.specialPrice||''))}">
+              </div>
+              <button type="button" class="special-save btn light" style="margin-top:6px">SPECIAL opslaan</button>
+            </div>
+            <div class="product-admin-actions">
                 <button type="button" class="btn light edit-mqs-group">Bewerken</button>
                 <button type="button" class="btn light duplicate-mqs-group">Dupliceren</button>
                 <button type="button" class="btn light delete-mqs-group">Verwijderen</button>
@@ -4021,12 +4035,13 @@ function render(){
 
         const card=document.createElement('article');
         card.className='card';
-        card.innerHTML=`<div class="photo">${p.photoData?`<img src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${p.available===false?'Uitverkocht':'Beschikbaar'}</span></div>
+        card.innerHTML=`<div class="photo">${p.specialActive?`<img loading="lazy" src="special-discount.png" alt="SPECIAL DISCOUNT">`:p.photoData?`<img src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${p.available===false?'Uitverkocht':'Beschikbaar'}</span></div>
           <div class="body">
             <div class="cat">${safe(p.category||'OVERIG')}</div>
             <h2>${safe(productDisplayName(p))}</h2>${String(p.category||'').trim().toUpperCase()!=='MQS'&&weightText(p)?`<div class="product-weight">${safe(weightText(p))}</div>`:''}
             <div class="meta">${normalizedCodes(p).each?`EACH Code: ${safe(normalizedCodes(p).each)}<br>`:''}${normalizedCodes(p).p12?`P12 Code: ${safe(normalizedCodes(p).p12)}<br>`:''}${normalizedCodes(p).pack?`P${normalizedPrices(p).unitsPerPack||''} Code: ${safe(normalizedCodes(p).pack)}<br>`:''}${normalizedCodes(p).crt?`CRT Code: ${safe(normalizedCodes(p).crt)}<br>`:''}${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
             ${String(p.notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String(p.notes).trim())}</div>`:''}
+            ${p.specialActive?`<div class="special-tablet-info"><strong>SPECIAL</strong><div>Code: ${safe(p.specialCode||p.code||'')} · Aantal: ${safe(String(p.specialQuantity||''))} · Prijs: CG ${safe(String(p.specialPrice||''))}</div></div>`:''}
             ${productPriceHtml(p)}
             <div class="catalog-order-controls">
               <select class="catalog-order-unit" data-product="${p.id}">${options}</select>
@@ -4059,6 +4074,20 @@ function render(){
             if(localSearch)localSearch.value='';
           }
         });
+        const specialToggle=card.querySelector('.special-toggle');
+        specialToggle.onchange=()=>{card.querySelector('.special-fields').style.display=specialToggle.checked?'grid':'none';};
+        card.querySelector('.special-save').onclick=async()=>{
+          const btn=card.querySelector('.special-save');btn.disabled=true;
+          const data={specialActive:specialToggle.checked,
+            specialCode:card.querySelector('.special-code').value.trim(),
+            specialQuantity:card.querySelector('.special-quantity').value.trim(),
+            specialPrice:card.querySelector('.special-price').value.trim()};
+          try{
+            await setDoc(doc(db,'catalogProducts',p.id),data,{merge:true});
+            Object.assign(p,data);btn.textContent='Opgeslagen ✓';
+          }catch(err){alert('SPECIAL opslaan mislukt: '+err.message);}
+          finally{btn.disabled=false;}
+        };
         card.querySelector('.edit-product-card').onclick=()=>edit(p.id);
         card.querySelector('.duplicate-product-card').onclick=()=>duplicateProduct(p.id);
         card.querySelector('.delete-product-card').onclick=()=>deleteProductById(p.id);
