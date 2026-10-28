@@ -48,6 +48,7 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 .catalog-note{margin-top:10px;padding:9px 10px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;font-size:.92rem;line-height:1.4}
 .catalog-note strong{color:#9a3412}.dr-results{max-height:300px;overflow:auto;display:grid;gap:6px;margin-top:8px}.drOption{border:1px solid #ddd;border-radius:10px;padding:11px;background:#fff;text-align:left;cursor:pointer}.drOption:hover{background:#fef9c3}.drOption small{display:block;color:#666;margin-top:4px}#drCompanyHistory,#drAllRecords{margin-top:14px}
 html,body{scroll-behavior:auto!important} .category-jumpbar{scroll-behavior:auto!important}.admin-order-btn{margin-left:6px;padding:5px 9px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer;font-weight:bold}
+.special-red-banner{background:#d60000;color:white;text-align:center;font-size:1.4rem;font-weight:900;letter-spacing:1px;padding:6px 8px;border-radius:9px;margin-bottom:6px}
 </style>
 
 <style>
@@ -344,9 +345,9 @@ window.addEventListener('unhandledrejection',function(e){
 <div class="unit-box" id="specialProductBox" style="border:2px solid #eab308;margin:14px 0;padding:14px;border-radius:12px">
   <label style="font-size:21px;font-weight:900;color:#b45309"><input type="checkbox" id="formSpecialActive" style="width:22px;height:22px;vertical-align:middle"> SPECIAL</label>
   <div id="formSpecialFields" style="display:none;margin-top:12px">
-    <div class="grid2"><div><label>SPECIAL Code</label><input id="formSpecialCode" placeholder="Productcode"></div><div><label>SPECIAL Aantal</label><input id="formSpecialQuantity" type="number" min="0" step="1" placeholder="Aantal"></div></div>
+    <div class="grid2"><div><label>SPECIAL Code</label><input id="formSpecialCode" placeholder="Productcode"></div><div><label>SPECIAL Aantal per CRT</label><input id="formSpecialQuantity" type="number" min="0" step="1" placeholder="Aantal per CRT"></div></div>
     <label>SPECIAL Prijs CG</label><input id="formSpecialPrice" type="number" min="0" step="0.01" placeholder="Prijs CG">
-    <p class="meta">Bij SPECIAL aan verschijnt automatisch de SPECIAL DISCOUNT afbeelding op de tablet.</p>
+    <p class="meta">Bij SPECIAL aan verschijnt een rood SPECIAL-vak boven de normale productfoto op de tablet.</p>
   </div>
 </div>
 <div class="grid2">
@@ -604,7 +605,7 @@ window.addEventListener('unhandledrejection',function(e){
       <div><label>Naam product</label><input id="giveawayProductName" placeholder="Naam product"></div>
     </div>
     <div class="sales-grid">
-      <div><label>Aantal</label><input id="giveawayQty" type="number" min="1" step="1" value="1" placeholder="Aantal"></div>
+      <div><label>Aantal</label><input id="giveawayQty" type="number" min="1" step="1" value="1" placeholder="Aantal per CRT"></div>
       <div><label>Eenheid</label><select id="giveawayUnit"><option value="LOS">LOS</option><option value="CRT">CRT</option></select></div>
     </div>
     <label>Soort</label>
@@ -2208,7 +2209,7 @@ function renderPackageSystem(){
 
     const countCard=document.createElement('div');countCard.className='package-count-card';
     const groupsHtml=(pkg.choiceGroups||[]).map(group=>{
-      const inputs=(group.items||[]).map((item,index)=>`<div style="margin-top:7px"><label>${safe(productLabel(item))}</label><input class="package-choice-count" data-package-id="${safe(pkg.id)}" data-group-id="${safe(group.id)}" data-choice-index="${index}" type="number" min="0" step="1" value="${Number(state.dayChoices?.[pkg.id]?.[group.id]?.[index]||0)}" placeholder="Aantal"></div>`).join('');
+      const inputs=(group.items||[]).map((item,index)=>`<div style="margin-top:7px"><label>${safe(productLabel(item))}</label><input class="package-choice-count" data-package-id="${safe(pkg.id)}" data-group-id="${safe(group.id)}" data-choice-index="${index}" type="number" min="0" step="1" value="${Number(state.dayChoices?.[pkg.id]?.[group.id]?.[index]||0)}" placeholder="Aantal per CRT"></div>`).join('');
       return `<div class="unit-box" style="margin-top:10px;padding:10px"><strong>${safe(group.name)}</strong>${inputs}<div class="meta package-choice-check" data-package-id="${safe(pkg.id)}" data-group-id="${safe(group.id)}" style="margin-top:6px"></div></div>`;
     }).join('');
     countCard.innerHTML=`<strong>${safe(pkg.name)}</strong><label>Aantal gemaakt</label><input class="package-made-count" data-package-id="${safe(pkg.id)}" type="number" min="0" step="1" value="${Number(state.dayCounts[pkg.id]||0)}">${groupsHtml}`;
@@ -3977,7 +3978,7 @@ function render(){
             </div>`;
           }).join('');
 
-          card.innerHTML=`<div class="photo">${imageProduct.photoData?`<img src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${group.every(p=>p.available===false)?'Uitverkocht':'Beschikbaar'}</span></div>
+          card.innerHTML=`${p.specialActive?`<div class="special-red-banner">SPECIAL</div>`:''}<div class="photo">${imageProduct.photoData?`<img src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${group.every(p=>p.available===false)?'Uitverkocht':'Beschikbaar'}</span></div>
             <div class="body">
               <div class="cat">MQS</div>
               <h2>${safe(mqsGroupDisplayName(group))}</h2>
@@ -3987,7 +3988,7 @@ function render(){
               <label style="font-weight:900"><input class="special-toggle" type="checkbox" ${group[0].specialActive?'checked':''}> SPECIAL</label>
               <div class="special-fields" style="display:${group[0].specialActive?'grid':'none'};grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px">
                 <input class="special-code" placeholder="Code" value="${safe(group[0].specialCode||'')}">
-                <input class="special-quantity" type="number" min="0" placeholder="Aantal" value="${safe(String(group[0].specialQuantity||''))}">
+                <input class="special-quantity" type="number" min="0" placeholder="Aantal per CRT" value="${safe(String(group[0].specialQuantity||''))}">
                 <input class="special-price" type="number" min="0" step="0.01" placeholder="Prijs CG" value="${safe(String(group[0].specialPrice||''))}">
               </div>
               <button type="button" class="special-save btn light" style="margin-top:6px">SPECIAL opslaan</button>
@@ -4043,13 +4044,13 @@ function render(){
 
         const card=document.createElement('article');
         card.className='card';
-        card.innerHTML=`<div class="photo">${p.specialActive?`<img loading="lazy" src="special-discount.png" alt="SPECIAL DISCOUNT">`:p.photoData?`<img src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${p.available===false?'Uitverkocht':'Beschikbaar'}</span></div>
+        card.innerHTML=`${p.specialActive?`<div class="special-red-banner">SPECIAL</div>`:''}<div class="photo">${p.photoData?`<img src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${p.available===false?'Uitverkocht':'Beschikbaar'}</span></div>
           <div class="body">
             <div class="cat">${safe(p.category||'OVERIG')}</div>
             <h2>${safe(productDisplayName(p))}</h2>${String(p.category||'').trim().toUpperCase()!=='MQS'&&weightText(p)?`<div class="product-weight">${safe(weightText(p))}</div>`:''}
             <div class="meta">${normalizedCodes(p).each?`EACH Code: ${safe(normalizedCodes(p).each)}<br>`:''}${normalizedCodes(p).p12?`P12 Code: ${safe(normalizedCodes(p).p12)}<br>`:''}${normalizedCodes(p).pack?`P${normalizedPrices(p).unitsPerPack||''} Code: ${safe(normalizedCodes(p).pack)}<br>`:''}${normalizedCodes(p).crt?`CRT Code: ${safe(normalizedCodes(p).crt)}<br>`:''}${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
             ${String(p.notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String(p.notes).trim())}</div>`:''}
-            ${p.specialActive?`<div class="special-tablet-info"><strong>SPECIAL</strong><div>Code: ${safe(p.specialCode||p.code||'')} · Aantal: ${safe(String(p.specialQuantity||''))} · Prijs: CG ${safe(String(p.specialPrice||''))}</div></div>`:''}
+            ${p.specialActive?`<div class="special-tablet-info"><strong>SPECIAL</strong><div>Code: ${safe(p.specialCode||p.code||'')} · Aantal per CRT: ${safe(String(p.specialQuantity||''))} · Prijs: CG ${safe(String(p.specialPrice||''))}</div></div>`:''}
             ${productPriceHtml(p)}
             <div class="catalog-order-controls">
               <select class="catalog-order-unit" data-product="${p.id}">${options}</select>
