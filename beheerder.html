@@ -4075,6 +4075,7 @@ function render(){
           }
         });
         const specialToggle=card.querySelector('.special-toggle');
+        if(specialToggle){
         specialToggle.onchange=()=>{card.querySelector('.special-fields').style.display=specialToggle.checked?'grid':'none';};
         card.querySelector('.special-save').onclick=async()=>{
           const btn=card.querySelector('.special-save');btn.disabled=true;
@@ -4088,6 +4089,7 @@ function render(){
           }catch(err){alert('SPECIAL opslaan mislukt: '+err.message);}
           finally{btn.disabled=false;}
         };
+        }
         card.querySelector('.edit-product-card').onclick=()=>edit(p.id);
         card.querySelector('.duplicate-product-card').onclick=()=>duplicateProduct(p.id);
         card.querySelector('.delete-product-card').onclick=()=>deleteProductById(p.id);
