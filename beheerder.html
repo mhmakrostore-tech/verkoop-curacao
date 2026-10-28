@@ -5133,43 +5133,63 @@ function mqsPrintPage(availableOnly){
   const printDay=String(now.getDate()).padStart(2,'0')+'-'+String(now.getMonth()+1).padStart(2,'0');
   const printYear=now.getFullYear();
   const groupNames=['MQS','TOFFEE','500 GR','2 KG'];
-  // Iedere groep krijgt een eigen kopregel. Binnen de groep loopt de
-  // alfabetische volgorde eerst omlaag in kolom 1, dan kolom 2 en kolom 3.
-  const lines=[];
+  // Maak de afdruk per zijde, en vul daarop kolom 1, 2, 3 in die volgorde.
+  // Een ster voor de naam heeft binnen elke sectie prioriteit.
+  const maxRowsPerSide=29;
+  const columnsPerSide=3;
+  const entries=[];
   for(let group=0;group<groupNames.length;group++){
-    const groupRows=rows.filter(row=>row.group===group);
-    if(!groupRows.length)continue;
-    lines.push({heading:groupNames[group]});
-    const height=Math.ceil(groupRows.length/3);
-    for(let r=0;r<height;r++){
-      lines.push({items:[groupRows[r],groupRows[r+height],groupRows[r+height*2]]});
+    const groupRows=rows.filter(row=>row.group===group).sort((a,b)=>{
+      const starA=/^\s*\*/.test(a.name)?0:1;
+      const starB=/^\s*\*/.test(b.name)?0:1;
+      return starA-starB||mqsAlphabeticalName(a.name).localeCompare(mqsAlphabeticalName(b.name),'nl',{sensitivity:'base',numeric:true});
+    });
+    if(groupRows.length){
+      entries.push({heading:groupNames[group]});
+      for(const row of groupRows)entries.push({product:row});
     }
   }
-  // Verdeel de lijst over maximaal twee A4-zijden wanneer de hoeveelheid past.
-  // 31 compacte rijen per zijde houden schrijfvakken bruikbaar.
-  const maxRowsPerSide=29;
-  const perPage=Math.min(maxRowsPerSide,Math.max(1,Math.ceil((lines.length+4)/2)));
-  const htmlPages=[];
-  const rowHeightMm=Math.min(15,Math.max(5.2,177/(perPage+1)));
-  if(lines.length>maxRowsPerSide*2){
-    alert('Er zijn '+lines.length+' tabelregels. Dit past niet leesbaar op één dubbelzijdig A4. De extra producten krijgen een volgende pagina.');
+  // De gehele voorkant wordt gevuld voordat de achterkant begint.
+  const pages=[];
+  let cursor=0;
+  while(cursor<entries.length){
+    const cols=[[],[],[]];
+    for(let c=0;c<columnsPerSide;c++){
+      while(cols[c].length<maxRowsPerSide && cursor<entries.length){
+        const item=entries[cursor++];
+        // Bij overgang naar een nieuwe kolom wordt de lopende sectiekop herhaald.
+        if(cols[c].length===0 && item.product){
+          const heading=groupNames[item.product.group];
+          cols[c].push({heading});
+        }
+        if(cols[c].length>=maxRowsPerSide){cursor--;break;}
+        cols[c].push(item);
+      }
+    }
+    pages.push(cols);
   }
-  for(let start=0;start<lines.length;start+=perPage){
-    const slice=lines.slice(start,start+perPage);
+  const htmlPages=[];
+  const rowHeightMm=5.55;
+  if(pages.length>2)alert('De MQS-lijst heeft '+pages.length+' pagina’s nodig. Print dubbelzijdig; de lijst blijft op volgorde.');
+  for(const cols of pages){
     let body='';
-    for(const line of slice){
-      if(line.heading){body+='<tr class="section-title"><td colspan="15">'+escapeHtml(line.heading)+'</td></tr>';continue;}
+    const count=Math.max(...cols.map(c=>c.length));
+    for(let r=0;r<Math.max(count,maxRowsPerSide);r++){
       body+='<tr>';
-      for(let col=0;col<3;col++){
-        const p=line.items[col];
-        body+='<td class="code">'+(p?escapeHtml(p.code):'')+'</td><td class="name">'+(p?escapeHtml(p.name):'')+'</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>';
+      for(let c=0;c<3;c++){
+        const item=cols[c][r];
+        if(item?.heading){
+          body+='<td class="section-cell" colspan="5">'+escapeHtml(item.heading)+'</td>';
+        }else{
+          const prod=item?.product;
+          body+='<td class="code">'+(prod?escapeHtml(prod.code):'')+'</td><td class="name">'+(prod?escapeHtml(prod.name.replace(/\s+MQS\s*$/i,'').trim()):'')+'</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>';
+        }
       }
       body+='</tr>';
     }
-    for(let i=slice.length;i<perPage;i++)body+='<tr>'+Array(3).fill('<td class="code"></td><td class="name"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>').join('')+'</tr>';
     htmlPages.push('<section class="page"><div class="heading"><span class="print-day">'+printDay+'</span><span class="write-date">Date: ______ - ______ - '+printYear+'</span><span class="write-name">Name: ______________________________</span></div><table><thead><tr>'+Array(3).fill('<th class="code">Code</th><th class="name">Product</th><th colspan="3">&nbsp;</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></section>');
   }
-  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-weight:900;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{display:flex;align-items:center;justify-content:flex-start;gap:9px;position:relative;font-weight:bold;font-size:11px;margin:0 0 5px;white-space:nowrap}.heading .print-day{margin-right:0}.heading .write-date{margin:0}.heading .write-name{position:static;transform:none;margin:0}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{font-weight:900;border:1px solid #333;height:'+rowHeightMm.toFixed(2)+'mm;padding:1px 3px;font-size:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}.section-title td{background:#ddd;font-size:9.5px;font-weight:900;padding-left:6px}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
+  const page='<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>MQS Productlijst</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-weight:900;margin:0;color:#111}.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}.heading{display:flex;align-items:center;justify-content:flex-start;gap:9px;position:relative;font-weight:bold;font-size:11px;margin:0 0 5px;white-space:nowrap}.heading .print-day{margin-right:0}.heading .write-date{margin:0}.heading .write-name{position:static;transform:none;margin:0}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{font-weight:900;border:1px solid #333;height:'+rowHeightMm.toFixed(2)+'mm;padding:1px 3px;font-size:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}th{background:#eee}td.code,th.code{width:6%}td.name,th.name{width:19%}td.qty{width:2.77%}th[colspan="3"]{width:8.31%}.section-title td,.section-cell{background:#ddd;font-size:9.5px;font-weight:900;padding-left:6px}@media screen{body{background:#ddd;padding:12px}.page{background:white;padding:8mm;margin:0 auto 14px;width:297mm;min-height:210mm;box-shadow:0 2px 10px #aaa}}@media print{.page{margin:0}}</style></head><body>'+htmlPages.join('')+'</body></html>';
   // Open een gewone HTML-pagina direct vanuit de klik (geen blob-URL).
   const win=window.open('','_blank');
   if(!win){alert('De browser blokkeert de printpagina. Sta pop-ups toe voor deze website.');return;}
