@@ -341,6 +341,14 @@ window.addEventListener('unhandledrejection',function(e){
     <div><label>Aantal per CRT</label><input id="unitsPerCarton" type="number" min="1" placeholder="Bijv. 72"></div>
   </div>
 </div>
+<div class="unit-box" id="specialProductBox" style="border:2px solid #eab308;margin:14px 0;padding:14px;border-radius:12px">
+  <label style="font-size:21px;font-weight:900;color:#b45309"><input type="checkbox" id="formSpecialActive" style="width:22px;height:22px;vertical-align:middle"> SPECIAL</label>
+  <div id="formSpecialFields" style="display:none;margin-top:12px">
+    <div class="grid2"><div><label>SPECIAL Code</label><input id="formSpecialCode" placeholder="Productcode"></div><div><label>SPECIAL Aantal</label><input id="formSpecialQuantity" type="number" min="0" step="1" placeholder="Aantal"></div></div>
+    <label>SPECIAL Prijs CG</label><input id="formSpecialPrice" type="number" min="0" step="0.01" placeholder="Prijs CG">
+    <p class="meta">Bij SPECIAL aan verschijnt automatisch de SPECIAL DISCOUNT afbeelding op de tablet.</p>
+  </div>
+</div>
 <div class="grid2">
   <div id="expiry1Wrap">
     <label>EXP 1</label>
@@ -1403,7 +1411,7 @@ function applySavedProduct(code){
     return false;
   }
   $('codeEach').value=normalizedCodes(p).each;$('codeP12').value=normalizedCodes(p).p12;$('codePack').value=normalizedCodes(p).pack;$('codeCrt').value=normalizedCodes(p).crt;$('name').value=p.name||'';$('weightValue').value=p.weightValue??'';$('weightUnit').value=p.weightUnit||'gr';updateMQSWeightUI();
-  $('priceEach').value=(p.priceEach??p.price??'');$('priceP12').value=p.priceP12??'';$('pricePack').value=p.pricePack??'';$('unitsPerPack').value=p.unitsPerPack??'';$('priceCrt').value=p.priceCrt??'';$('unitsPerCarton').value=p.unitsPerCarton??'';
+  $('priceEach').value=(p.priceEach??p.price??'');$('priceP12').value=p.priceP12??'';$('pricePack').value=p.pricePack??'';$('unitsPerPack').value=p.unitsPerPack??'';$('priceCrt').value=p.priceCrt??'';$('unitsPerCarton').value=p.unitsPerCarton??'';$('formSpecialActive').checked=!!p.specialActive;$('formSpecialCode').value=p.specialCode||'';$('formSpecialQuantity').value=p.specialQuantity??'';$('formSpecialPrice').value=p.specialPrice??'';$('formSpecialFields').style.display=p.specialActive?'block':'none';
   $('expiry1').value=isoToTypedDate(p.expiryDate1||p.expiryDate||'');$('expiry2').value=isoToTypedDate(p.expiryDate2||'');$('stockExp1').value=p.stockExp1??'';$('stockExp2').value=p.stockExp2??'';$('stockExp1').value=p.stockExp1??'';$('stockExp2').value=p.stockExp2??'';
   
   $('cat').value=p.category||'';
@@ -4322,7 +4330,7 @@ function setProductFormMode(editing){
 }
 
 function clearNormalEditForm(){editingMQSOriginalName='';setProductFormMode(false);
-  $('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('expiry1').value='';$('expiry2').value='';$('barcode').value='';$('notes').value='';$('available').checked=true;$('internalOnly').checked=false;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';
+  $('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('formSpecialActive').checked=false;$('formSpecialCode').value='';$('formSpecialQuantity').value='';$('formSpecialPrice').value='';$('formSpecialFields').style.display='none';$('expiry1').value='';$('expiry2').value='';$('barcode').value='';$('notes').value='';$('available').checked=true;$('internalOnly').checked=false;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';
 }
 function edit(id){
   if(currentRole==='sales')return;
@@ -4381,7 +4389,7 @@ function edit(id){
   $('codeEach').value=normalizedCodes(p).each;$('codeP12').value=normalizedCodes(p).p12;$('codePack').value=normalizedCodes(p).pack;$('codeCrt').value=normalizedCodes(p).crt;
   $('name').value=p.name||'';$('weightValue').value=p.weightValue??'';
   updateWeightUnitOptions();$('weightUnit').value=p.weightUnit||'gr';
-  $('priceEach').value=(p.priceEach??p.price??'');$('priceP12').value=p.priceP12??'';$('pricePack').value=p.pricePack??'';$('unitsPerPack').value=p.unitsPerPack??'';$('priceCrt').value=p.priceCrt??'';$('unitsPerCarton').value=p.unitsPerCarton??'';
+  $('priceEach').value=(p.priceEach??p.price??'');$('priceP12').value=p.priceP12??'';$('pricePack').value=p.pricePack??'';$('unitsPerPack').value=p.unitsPerPack??'';$('priceCrt').value=p.priceCrt??'';$('unitsPerCarton').value=p.unitsPerCarton??'';$('formSpecialActive').checked=!!p.specialActive;$('formSpecialCode').value=p.specialCode||'';$('formSpecialQuantity').value=p.specialQuantity??'';$('formSpecialPrice').value=p.specialPrice??'';$('formSpecialFields').style.display=p.specialActive?'block':'none';
   $('expiry1').value=isoToTypedDate(p.expiryDate1||p.expiryDate||'');$('expiry2').value=isoToTypedDate(p.expiryDate2||'');$('stockExp1').value=p.stockExp1??'';$('stockExp2').value=p.stockExp2??'';
   $('barcode').value=p.barcode||'';$('notes').value=p.notes||'';$('available').checked=p.available!==false;$('internalOnly').checked=p.internalOnly===true;
   photoData=p.photoData||'';if(photoData){$('preview').src=photoData;$('preview').classList.remove('hidden')}else $('preview').classList.add('hidden');
@@ -4409,12 +4417,12 @@ function duplicateProduct(id){
   $('editId').value='';editingMQSOriginalName='';setProductFormMode(false);
   $('codeEach').value='';$('codeP12').value='';$('codeCrt').value='';
   $('name').value=p.name||'';$('weightValue').value=p.weightValue??'';updateWeightUnitOptions();$('weightUnit').value=p.weightUnit||'gr';
-  $('priceEach').value=(p.priceEach??p.price??'');$('priceP12').value=p.priceP12??'';$('pricePack').value=p.pricePack??'';$('unitsPerPack').value=p.unitsPerPack??'';$('priceCrt').value=p.priceCrt??'';$('unitsPerCarton').value=p.unitsPerCarton??'';
+  $('priceEach').value=(p.priceEach??p.price??'');$('priceP12').value=p.priceP12??'';$('pricePack').value=p.pricePack??'';$('unitsPerPack').value=p.unitsPerPack??'';$('priceCrt').value=p.priceCrt??'';$('unitsPerCarton').value=p.unitsPerCarton??'';$('formSpecialActive').checked=!!p.specialActive;$('formSpecialCode').value=p.specialCode||'';$('formSpecialQuantity').value=p.specialQuantity??'';$('formSpecialPrice').value=p.specialPrice??'';$('formSpecialFields').style.display=p.specialActive?'block':'none';
   $('expiry1').value='';$('expiry2').value='';$('barcode').value='';$('notes').value=p.notes||'';$('available').checked=p.available!==false;$('internalOnly').checked=p.internalOnly===true;
   photoData=p.photoData||'';if(photoData){$('preview').src=photoData;$('preview').classList.remove('hidden')}else $('preview').classList.add('hidden');
   updateMQSWeightUI();$('formTitle').textContent='Product dupliceren';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'instant'});
 }
-function reset(){stopMakroScanner();stopWarehouseScanner();editingMQSOriginalName='';setProductFormMode(false);['makroName','makroBarcode','makroExpiry1','makroExpiry2','makroExpiry3','makroStock1','makroStock2','makroStock3','warehouseName','warehouseBarcode','warehouseExpiry1','warehouseExpiry2','warehouseExpiry3','warehouseStock1','warehouseStock2','warehouseStock3'].forEach(id=>{if($(id))$(id).value='';});if($('mqsProductName'))$('mqsProductName').value='';['mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500','mqsCodeKg','mqsPriceKg','mqsCrtCodeKg','mqsCrtPriceKg','mqsCrtKg','mqsActualKg','mqsExpiry1','mqsExpiry2'].forEach(id=>{if($(id))$(id).value='';});$('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('mqsWeightPreset').value='';updateMQSWeightUI();$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('expiry1').value='';$('expiry2').value='';$('stockExp1').value='';$('stockExp2').value='';refreshCategorySelects();$('cat').value=allCategoryNames()[0]||'OVERIG';updateMQSWeightUI();$('barcode').value='';$('notes').value='';$('available').checked=true;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';$('formTitle').textContent='Nieuw product';$('cancelBtn').classList.add('hidden');$('foundBox').classList.add('hidden');$('foundBox').textContent='';stopScanner()}
+function reset(){stopMakroScanner();stopWarehouseScanner();editingMQSOriginalName='';setProductFormMode(false);['makroName','makroBarcode','makroExpiry1','makroExpiry2','makroExpiry3','makroStock1','makroStock2','makroStock3','warehouseName','warehouseBarcode','warehouseExpiry1','warehouseExpiry2','warehouseExpiry3','warehouseStock1','warehouseStock2','warehouseStock3'].forEach(id=>{if($(id))$(id).value='';});if($('mqsProductName'))$('mqsProductName').value='';['mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500','mqsCodeKg','mqsPriceKg','mqsCrtCodeKg','mqsCrtPriceKg','mqsCrtKg','mqsActualKg','mqsExpiry1','mqsExpiry2'].forEach(id=>{if($(id))$(id).value='';});$('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('mqsWeightPreset').value='';updateMQSWeightUI();$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('formSpecialActive').checked=false;$('formSpecialCode').value='';$('formSpecialQuantity').value='';$('formSpecialPrice').value='';$('formSpecialFields').style.display='none';$('expiry1').value='';$('expiry2').value='';$('stockExp1').value='';$('stockExp2').value='';refreshCategorySelects();$('cat').value=allCategoryNames()[0]||'OVERIG';updateMQSWeightUI();$('barcode').value='';$('notes').value='';$('available').checked=true;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';$('formTitle').textContent='Nieuw product';$('cancelBtn').classList.add('hidden');$('foundBox').classList.add('hidden');$('foundBox').textContent='';stopScanner()}
 if($('addQuoteItemBtn'))$('addQuoteItemBtn').onclick=()=>addQuoteItem();
 if($('saveQuoteBtn'))$('saveQuoteBtn').onclick=saveQuote;
 if($('quotePdfBtn'))$('quotePdfBtn').onclick=makeQuotePdf;
@@ -4850,6 +4858,7 @@ $('saveBtn').onclick=async()=>{
       // Alleen velden opslaan die echt gewijzigd zijn.
       // Alle andere gegevens in Firestore blijven exact onaangeraakt.
       const changes={updatedAt:serverTimestamp()};
+      changes.specialActive=$('formSpecialActive').checked;changes.specialCode=$('formSpecialCode').value.trim();changes.specialQuantity=Number($('formSpecialQuantity').value||0);changes.specialPrice=Number($('formSpecialPrice').value||0);
 
       if(name!==String(existing.name||''))changes.name=name;
 
@@ -5004,6 +5013,10 @@ $('saveBtn').onclick=async()=>{
       unitsPerPack:isFoodProduct?unitsPerPack:0,
       priceCrt,
       unitsPerCarton,
+      specialActive:$('formSpecialActive').checked,
+      specialCode:$('formSpecialCode').value.trim(),
+      specialQuantity:Number($('formSpecialQuantity').value||0),
+      specialPrice:Number($('formSpecialPrice').value||0),
       expiryDate1:exp1,
       expiryDate2:exp2,
       expiryDate:([exp1,exp2].filter(Boolean).sort()[0]||''),
@@ -5038,6 +5051,7 @@ $('saveBtn').onclick=async()=>{
   }
 };
 
+$('formSpecialActive').addEventListener('change',()=>{$('formSpecialFields').style.display=$('formSpecialActive').checked?'block':'none';});
 $('cancelBtn').onclick=reset;$('search').oninput=render;$('category').onchange=render;$('availability').onchange=render;
 onAuthStateChanged(auth,async u=>{
   $('loading').classList.add('hidden');
