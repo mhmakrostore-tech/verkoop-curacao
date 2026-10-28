@@ -3978,7 +3978,7 @@ function render(){
             </div>`;
           }).join('');
 
-          card.innerHTML=`${p.specialActive?`<div class="special-red-banner">SPECIAL</div>`:''}<div class="photo">${imageProduct.photoData?`<img src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${group.every(p=>p.available===false)?'Uitverkocht':'Beschikbaar'}</span></div>
+          card.innerHTML=`${group.some(item=>item.specialActive)?`<div class="special-red-banner">SPECIAL</div>`:''}<div class="photo">${imageProduct.photoData?`<img src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}<span class="badge">${group.every(p=>p.available===false)?'Uitverkocht':'Beschikbaar'}</span></div>
             <div class="body">
               <div class="cat">MQS</div>
               <h2>${safe(mqsGroupDisplayName(group))}</h2>
