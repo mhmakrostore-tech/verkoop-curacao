@@ -3976,11 +3976,11 @@ function render(){
               ${String((group.find(p=>String(p.notes||'').trim())||{}).notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String((group.find(p=>String(p.notes||'').trim())||{}).notes||'').trim())}</div>`:''}
               <div class="mqs-variants">${variantsHtml}</div>
               <div class="special-admin-controls no-print" style="margin:9px 0;padding:9px;border:2px solid #eab308;border-radius:8px">
-              <label style="font-weight:900"><input class="special-toggle" type="checkbox" ${p.specialActive?'checked':''}> SPECIAL</label>
-              <div class="special-fields" style="display:${p.specialActive?'grid':'none'};grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px">
-                <input class="special-code" placeholder="Code" value="${safe(p.specialCode||'')}">
-                <input class="special-quantity" type="number" min="0" placeholder="Aantal" value="${safe(String(p.specialQuantity||''))}">
-                <input class="special-price" type="number" min="0" step="0.01" placeholder="Prijs CG" value="${safe(String(p.specialPrice||''))}">
+              <label style="font-weight:900"><input class="special-toggle" type="checkbox" ${group[0].specialActive?'checked':''}> SPECIAL</label>
+              <div class="special-fields" style="display:${group[0].specialActive?'grid':'none'};grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px">
+                <input class="special-code" placeholder="Code" value="${safe(group[0].specialCode||'')}">
+                <input class="special-quantity" type="number" min="0" placeholder="Aantal" value="${safe(String(group[0].specialQuantity||''))}">
+                <input class="special-price" type="number" min="0" step="0.01" placeholder="Prijs CG" value="${safe(String(group[0].specialPrice||''))}">
               </div>
               <button type="button" class="special-save btn light" style="margin-top:6px">SPECIAL opslaan</button>
             </div>
@@ -4074,6 +4074,7 @@ function render(){
             if(localSearch)localSearch.value='';
           }
         });
+        if(card.querySelector('.special-toggle') && card.querySelector('.special-save')){
         const specialToggle=card.querySelector('.special-toggle');
         specialToggle.onchange=()=>{card.querySelector('.special-fields').style.display=specialToggle.checked?'grid':'none';};
         card.querySelector('.special-save').onclick=async()=>{
@@ -4088,6 +4089,7 @@ function render(){
           }catch(err){alert('SPECIAL opslaan mislukt: '+err.message);}
           finally{btn.disabled=false;}
         };
+        }
         card.querySelector('.edit-product-card').onclick=()=>edit(p.id);
         card.querySelector('.duplicate-product-card').onclick=()=>duplicateProduct(p.id);
         card.querySelector('.delete-product-card').onclick=()=>deleteProductById(p.id);
