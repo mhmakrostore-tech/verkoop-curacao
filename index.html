@@ -896,7 +896,7 @@ function clearCatalogOrder(){
   $('catalogOrderNote').value='';
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=false;
   // Maak ALLE aantallen in de catalogus leeg, ook de aparte MQS-velden.
-  document.querySelectorAll('.catalog-order-qty, .mqs-order-qty').forEach(input=>input.value='');
+  document.querySelectorAll('.catalog-order-qty, .mqs-order-qty, .special-order-qty').forEach(input=>input.value='');
   document.querySelectorAll('.catalog-order-unit, .mqs-order-unit').forEach(select=>{
     if([...select.options].some(option=>option.value==='each'))select.value='each';
     else if(select.options.length)select.selectedIndex=0;
@@ -1631,7 +1631,7 @@ function normalizedCodes(p){
   return {each:String(p.codeEach??p.productCode??p.code??'').trim(),p12:String(p.codeP12??'').trim(),pack:String(p.codePack??'').trim(),crt:String(p.codeCrt??'').trim()};
 }
 function codeForUnit(p,unitType){
-  if(unitType==='special')return String(p.specialCode||'').trim();
+  if(unitType==='special')return String(p.specialCode||p.codeCrt||p.codeEach||p.code||'').trim();
   const codes=normalizedCodes(p);
   return unitType==='p12'?codes.p12:unitType==='p'?codes.pack:unitType==='crt'?codes.crt:codes.each;
 }
@@ -1671,7 +1671,7 @@ function productPriceForUnit(p, unitType){
   return prices.each;
 }
 function stockUnitsForSale(unitType, quantity, product){
-  if(unitType==='special')return quantity*Math.max(1,Number(product.specialQuantity||0));
+  if(unitType==='special')return quantity*Math.max(1,Number(product.specialQuantity||product.unitsPerCarton||0));
   if(unitType==='p12') return quantity*12;
   if(unitType==='p') return quantity*Math.max(1,Number(product.unitsPerPack||0));
   if(unitType==='crt') return quantity*Math.max(1,Number(product.unitsPerCarton||0));
@@ -4410,7 +4410,7 @@ function render(){
                 <span>Aantal</span>
                 <input class="mqs-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="0" value="${current.qty||''}">
               </div>
-              ${p.specialActive&&Number(p.specialPrice)>0&&Number(p.specialQuantity)>0?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
+              ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
             </div>`;
           }).join('');
 
@@ -4488,7 +4488,7 @@ function render(){
               <select class="catalog-order-unit" data-product="${p.id}">${options}</select>
               <input class="catalog-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="Aantal" value="${current.qty||''}">
             </div>
-            ${p.specialActive&&Number(p.specialPrice)>0&&Number(p.specialQuantity)>0?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
+            ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
             <div class="product-admin-actions">
               <button type="button" class="btn light edit-product-card" data-id="${p.id}">Bewerken</button>
               <button type="button" class="btn light duplicate-product-card" data-id="${p.id}">Dupliceren</button>
