@@ -784,6 +784,7 @@ function saveCatalogDraft(){
       if(qty>0)catalogCart[id]={qty,unitType:unit?.value||catalogCart[id]?.unitType||'each'};
       else delete catalogCart[id];
     });
+    document.querySelectorAll('.special-order-qty').forEach(input=>{const id=input.dataset.product+'::special';const qty=Number(input.value||0);if(qty>0)catalogCart[id]={unitType:'special',qty};else delete catalogCart[id];});
     localStorage.setItem(draftKey(),JSON.stringify({cart:catalogCart,customer:$('catalogCustomerName').value,note:$('catalogOrderNote').value,credit:!!$('catalogCreditOption')?.checked,editingSaleId,draftPickOrderNumber}));
   }catch(e){console.warn('Bestelling lokaal bewaren mislukt',e);}
 }
@@ -801,8 +802,8 @@ function restoreCatalogDraft(){
 }
 function deleteCatalogDraft(){try{localStorage.removeItem(draftKey());}catch(e){}}
 // Sla wijzigingen direct op, ook als de pagina onverwacht wordt afgesloten.
-document.addEventListener('input',e=>{if(e.target.matches?.('#catalogCustomerName,#catalogOrderNote,.catalog-order-qty,.mqs-order-qty'))saveCatalogDraft();});
-document.addEventListener('change',e=>{if(e.target.matches?.('#catalogCreditOption,.catalog-order-unit,.mqs-order-unit,.catalog-order-qty,.mqs-order-qty'))saveCatalogDraft();});
+document.addEventListener('input',e=>{if(e.target.matches?.('#catalogCustomerName,#catalogOrderNote,.catalog-order-qty,.mqs-order-qty,.special-order-qty'))saveCatalogDraft();});
+document.addEventListener('change',e=>{if(e.target.matches?.('#catalogCreditOption,.catalog-order-unit,.mqs-order-unit,.catalog-order-qty,.mqs-order-qty,.special-order-qty'))saveCatalogDraft();});
 window.addEventListener('pagehide',saveCatalogDraft);
 function catalogCartItems(){
   // Synchroniseer alle zichtbare aantallen eerst met de winkelmand.
@@ -817,21 +818,27 @@ function catalogCartItems(){
     if(qty>0)catalogCart[productId]={unitType,qty};
     else if(Object.prototype.hasOwnProperty.call(catalogCart,productId))delete catalogCart[productId];
   });
+  document.querySelectorAll('.special-order-qty').forEach(input=>{const id=input.dataset.product+'::special';const qty=Number(input.value||0);if(qty>0)catalogCart[id]={unitType:'special',qty};else delete catalogCart[id];});
   return Object.entries(catalogCart).map(([productId,item])=>{
-    const product=products.find(p=>p.id===productId);
+    const baseId=productId.endsWith('::special')?productId.slice(0,-9):productId;
+    const product=products.find(p=>p.id===baseId);
     if(!product)return null;
     const unitType=item.unitType||'each';
     const qty=Number(item.qty||0);
     const price=productPriceForUnit(product,unitType);
     return {
-      productId,
+      productId:baseId,
+      cartKey:productId,
       productCode:codeForUnit(product,unitType),
       name:productDisplayName(product),
       category:String(product.category||'').trim(),
       unitType,
       unitLabel:unitLabelForProduct(product,unitType),
       qty,
-      price
+      price,
+      special:unitType==='special',
+      specialPcsPerCrt:unitType==='special'?Number(product.specialQuantity||0):0,
+      kortingRetouren:unitType==='special'
     };
   }).filter(item=>item&&item.qty>0);
 }
@@ -840,9 +847,9 @@ function renderEditableCatalogCart(items){
   if(!target)return;
   target.innerHTML=items.map(item=>`<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid #ddd">
     <span style="flex:1;min-width:140px;font-weight:700">${safe(item.name)} — ${safe(item.unitLabel)}</span>
-    <button type="button" class="btn light" data-cart-minus="${safe(item.productId)}" aria-label="Aantal verlagen">−</button>
-    <input type="number" min="0" step="1" inputmode="numeric" data-cart-qty="${safe(item.productId)}" value="${item.qty}" aria-label="Aantal ${safe(item.name)}" style="width:75px;padding:8px;text-align:center">
-    <button type="button" class="btn light" data-cart-plus="${safe(item.productId)}" aria-label="Aantal verhogen">+</button>
+    <button type="button" class="btn light" data-cart-minus="${safe(item.cartKey||item.productId)}" aria-label="Aantal verlagen">−</button>
+    <input type="number" min="0" step="1" inputmode="numeric" data-cart-qty="${safe(item.cartKey||item.productId)}" value="${item.qty}" aria-label="Aantal ${safe(item.name)}" style="width:75px;padding:8px;text-align:center">
+    <button type="button" class="btn light" data-cart-plus="${safe(item.cartKey||item.productId)}" aria-label="Aantal verhogen">+</button>
   </div>`).join('');
 }
 function editCartQuantity(productId,qty){
@@ -852,9 +859,11 @@ function editCartQuantity(productId,qty){
   document.querySelectorAll('.catalog-order-qty, .mqs-order-qty').forEach(input=>{
     if(input.dataset.product===productId)input.value=qty?String(qty):'';
   });
+  if(productId.endsWith('::special'))document.querySelectorAll('.special-order-qty').forEach(input=>{if(input.dataset.product===productId.slice(0,-9))input.value=qty?String(qty):'';});
   if(qty)catalogCart[productId]={...item,qty};else delete catalogCart[productId];
   updateCatalogCart();saveCatalogDraft();
 }
+document.addEventListener('input',event=>{const input=event.target.closest?.('.special-order-qty');if(input){const id=input.dataset.product+'::special';const qty=Math.max(0,Math.floor(Number(input.value)||0));if(qty)catalogCart[id]={unitType:'special',qty};else delete catalogCart[id];updateCatalogCart();saveCatalogDraft();}});
 document.addEventListener('change',event=>{
   const input=event.target.closest?.('[data-cart-qty]');
   if(input)editCartQuantity(input.dataset.cartQty,input.value);
@@ -962,7 +971,7 @@ function buildOrderPreview(){
     const product=products.find(p=>p.id===item.productId);
     const unitLabel=item.unitType==='crt'?`CRT${product?.unitsPerCarton?` (${product.unitsPerCarton})`:''}`:(item.unitLabel||unitLabelForProduct(product,item.unitType));
     const code=barcodeCodeForOrderItem(item,product);
-    const row=`<tr><td>${safe(code)}</td><td>${safe(item.name)}</td><td>${safe(unitLabel)}</td><td>${item.qty}</td><td>CG ${item.price.toFixed(2)}</td><td>CG ${(item.qty*item.price).toFixed(2)}</td><td class="bon-barcode">${code?`<svg data-barcode="${safe(code)}"></svg>`:''}</td></tr>`;
+    const row=`<tr><td>${safe(code)}</td><td>${item.unitType==='special'?'<strong style="color:#c00">SPECIAL</strong><br>':''}${safe(item.name)}</td><td>${safe(unitLabel)}</td><td>${item.qty}</td><td>CG ${item.price.toFixed(2)}</td><td>CG ${(item.qty*item.price).toFixed(2)}</td><td class="bon-barcode">${code?`<svg data-barcode="${safe(code)}"></svg>`:''}</td></tr>`;
     const hasMoreAfterMQS=lastMQSIndex>=0&&lastMQSIndex<sortedItems.length-1;
     const separator=(index===lastMQSIndex&&hasMoreAfterMQS)?'<tr aria-hidden="true"><td colspan="7" style="padding:0;border:0;border-top:6px solid #000;height:8px"></td></tr>':'';
     return row+separator;
@@ -1026,6 +1035,7 @@ async function saveCatalogOrder(){
     isCredit:false,
     note:$('catalogOrderNote').value.trim(),
     items,
+    kortingRetourenItems:items.filter(item=>item.special).map(item=>({...item,source:'SPECIAL',customerName,orderNumber:fixedOrderNumber})),
     total,
     createdByEmail:creatorEmail,
     updatedAt:serverTimestamp()
@@ -1078,7 +1088,7 @@ function editSavedOrder(id){
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=editCredit;
   catalogCart={};
   (sale.items||[]).forEach(item=>{
-    if(item.productId)catalogCart[item.productId]={unitType:item.unitType||'each',qty:Number(item.qty||0)};
+    if(item.productId)catalogCart[item.productId+(item.unitType==='special'?'::special':'')]={unitType:item.unitType||'each',qty:Number(item.qty||0)};
   });
   document.querySelector('[data-tab="catalog"]').click();
   render();
@@ -1621,6 +1631,7 @@ function normalizedCodes(p){
   return {each:String(p.codeEach??p.productCode??p.code??'').trim(),p12:String(p.codeP12??'').trim(),pack:String(p.codePack??'').trim(),crt:String(p.codeCrt??'').trim()};
 }
 function codeForUnit(p,unitType){
+  if(unitType==='special')return String(p.specialCode||'').trim();
   const codes=normalizedCodes(p);
   return unitType==='p12'?codes.p12:unitType==='p'?codes.pack:unitType==='crt'?codes.crt:codes.each;
 }
@@ -1635,6 +1646,7 @@ function normalizedPrices(p){
   };
 }
 function unitLabelForProduct(p,unitType){
+  if(unitType==='special')return `SPECIAL CRT (${Number(p.specialQuantity||0)} PCS)`;
   // Bij categorie MQS heet EACH op scherm én bon voortaan MQS of 500 GR,
   // afhankelijk van het opgeslagen MQS-formaat van dit product.
   if(String(p?.category||'').trim().toUpperCase()==='MQS' && unitType==='each'){
@@ -1651,6 +1663,7 @@ function unitLabelForProduct(p,unitType){
   return String(unitType||'each').toUpperCase();
 }
 function productPriceForUnit(p, unitType){
+  if(unitType==='special')return p.specialActive?Number(p.specialPrice||0):0;
   const prices=normalizedPrices(p);
   if(unitType==='p12') return prices.p12;
   if(unitType==='p') return prices.pack;
@@ -1658,6 +1671,7 @@ function productPriceForUnit(p, unitType){
   return prices.each;
 }
 function stockUnitsForSale(unitType, quantity, product){
+  if(unitType==='special')return quantity*Math.max(1,Number(product.specialQuantity||0));
   if(unitType==='p12') return quantity*12;
   if(unitType==='p') return quantity*Math.max(1,Number(product.unitsPerPack||0));
   if(unitType==='crt') return quantity*Math.max(1,Number(product.unitsPerCarton||0));
@@ -4389,12 +4403,14 @@ function render(){
               </div>
               <div class="mqs-order-row" style="grid-template-columns:110px 1fr 90px">
                 <select class="mqs-order-unit" data-product="${p.id}">
-                  <option value="each"${current.unitType!=='crt'?' selected':''}>${mqsVariantLabel(p).toUpperCase()}</option>
+                  <option value="each"${current.unitType!=='crt'&&current.unitType!=='special'?' selected':''}>${mqsVariantLabel(p).toUpperCase()}</option>
                   ${crtPrice>0?`<option value="crt"${current.unitType==='crt'?' selected':''}>CRT</option>`:''}
+                  
                 </select>
                 <span>Aantal</span>
                 <input class="mqs-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="0" value="${current.qty||''}">
               </div>
+              ${p.specialActive&&Number(p.specialPrice)>0&&Number(p.specialQuantity)>0?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
             </div>`;
           }).join('');
 
@@ -4407,9 +4423,9 @@ function render(){
               <div class="special-admin-controls no-print" style="margin:9px 0;padding:9px;border:2px solid #eab308;border-radius:8px">
               <label style="font-weight:900"><input class="special-toggle" type="checkbox" ${group[0].specialActive?'checked':''}> SPECIAL</label>
               <div class="special-fields" style="display:${group[0].specialActive?'grid':'none'};grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px">
-                <input class="special-code" placeholder="Code" value="${safe(p.specialCode||'')}">
-                <input class="special-quantity" type="number" min="0" placeholder="Aantal per CRT" value="${safe(String(p.specialQuantity||''))}">
-                <input class="special-price" type="number" min="0" step="0.01" placeholder="Prijs CG" value="${safe(String(p.specialPrice||''))}">
+                <input class="special-code" placeholder="Code" value="${safe(first.specialCode||'')}">
+                <input class="special-quantity" type="number" min="0" placeholder="Aantal per CRT" value="${safe(String(first.specialQuantity||''))}">
+                <input class="special-price" type="number" min="0" step="0.01" placeholder="Prijs CG" value="${safe(String(first.specialPrice||''))}">
               </div>
               <button type="button" class="special-save btn light" style="margin-top:6px">SPECIAL opslaan</button>
             </div>
@@ -4453,7 +4469,8 @@ function render(){
           prices.each>0?'<option value="each">EACH</option>':'',
           prices.p12>0?'<option value="p12">P12</option>':'',
           (String(p.category||'').trim().toUpperCase()==='FOOD'&&prices.pack>0&&prices.unitsPerPack>0)?`<option value="p">P${prices.unitsPerPack}</option>`:'',
-          prices.crt>0?'<option value="crt">CRT</option>':''
+          prices.crt>0?'<option value="crt">CRT</option>':'',
+          ''
         ].join('');
 
         const card=document.createElement('article');
@@ -4471,6 +4488,7 @@ function render(){
               <select class="catalog-order-unit" data-product="${p.id}">${options}</select>
               <input class="catalog-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="Aantal" value="${current.qty||''}">
             </div>
+            ${p.specialActive&&Number(p.specialPrice)>0&&Number(p.specialQuantity)>0?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
             <div class="product-admin-actions">
               <button type="button" class="btn light edit-product-card" data-id="${p.id}">Bewerken</button>
               <button type="button" class="btn light duplicate-product-card" data-id="${p.id}">Dupliceren</button>
