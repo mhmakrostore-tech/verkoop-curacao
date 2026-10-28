@@ -5094,39 +5094,34 @@ function mqsAlphabeticalName(name){
   return String(name||'').replace(/^[^\p{L}\p{N}]+/gu,'').replace(/\s+CRT$/i,'').trim();
 }
 function mqsSheetRows(availableOnly){
-  const entries=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS' && p.internalOnly!==true && (availableOnly?p.available!==false:p.available===false));
+  // Gebruik uitsluitend zichtbare MQS-producten, zoals op de verkooptablet.
+  const entries=products.filter(p=>String(p.category||'').trim().toUpperCase()==='MQS' && p.internalOnly!==true && p.visible!==false && p.zichtbaar!==false && (availableOnly?p.available!==false:p.available===false));
   const rows=[];
+  const seenCodes=new Set();
+  const seenNamesWithoutCode=new Set();
+  const normalize=v=>String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ').toUpperCase();
   for(const p of entries){
     const name=String(p.name||'').trim();
     const variant=String(p.mqsVariant||p.mqsFormat||p.mqsSize||'').trim();
     const code=String(p.codeEach||p.code||p.barcode||'').trim();
-    const crt=String(p.codeCrt||'').trim();
     const full=variant?name+' '+variant:name;
-    if(code)rows.push({code,name:full});
-    if(crt&&crt!==code)rows.push({code:crt,name:full+' CRT'});
-    if(!code&&!crt)rows.push({code:'',name:full});
+    const normalizedCode=normalize(code);
+    const normalizedName=normalize(full);
+    if(normalizedCode){
+      if(seenCodes.has(normalizedCode))continue;
+      seenCodes.add(normalizedCode);
+    }else{
+      if(seenNamesWithoutCode.has(normalizedName))continue;
+      seenNamesWithoutCode.add(normalizedName);
+    }
+    rows.push({code,name:full});
   }
   const is500=row=>/(?:^|[^0-9])500\s*(?:gr|gram|g)?(?=$|[^a-z0-9])/i.test(row.name);
   const is2kg=row=>/(?:^|[^0-9])2\s*(?:kg|kilo)(?=$|[^a-z0-9])/i.test(row.name);
   const isToffee=row=>/toff(?:ee|e|ees)?/i.test(row.name);
-  const isPrune=row=>/pruim(?:en)?\s*chine(?:es|se|es?e)?|pruimen\s*chinees/i.test(row.name);
-  // 500 GR: uitsluitend Toffee, Pruimen Chinees, Anis Candy en Hacks.
-  const isAnis=row=>/anis\s*candy/i.test(row.name);
-  const isHacks=row=>/hacks/i.test(row.name);
-  const filtered=rows.filter(row=>!is500(row)||isToffee(row)||isPrune(row)||isAnis(row)||isHacks(row));
-  // Verwijder dubbele printregels met exact dezelfde productcode en naam.
-  // EACH en CRT met verschillende codes blijven afzonderlijk zichtbaar.
-  const seenPrintRows=new Set();
-  const uniqueRows=filtered.filter(row=>{
-    const key=String(row.code||'').trim().toUpperCase()+'\u0000'+String(row.name||'').trim().replace(/\s+/g,' ').toUpperCase();
-    if(seenPrintRows.has(key))return false;
-    seenPrintRows.add(key);
-    return true;
-  });
-  const group=row=>is500(row)?3:is2kg(row)?1:isToffee(row)?2:0;
-  return uniqueRows.map((row,index)=>({...row,_tabletOrder:index,group:group(row)}))
-    .sort((a,b)=>a.group-b.group||mqsAlphabeticalName(a.name).localeCompare(mqsAlphabeticalName(b.name),'nl',{sensitivity:'base',numeric:true})||a.code.localeCompare(b.code,'nl',{numeric:true}))
-    .map(({_tabletOrder,...row})=>row);
+  const group=row=>is2kg(row)?3:is500(row)?2:isToffee(row)?1:0;
+  return rows.map(row=>({...row,group:group(row)}))
+    .sort((a,b)=>a.group-b.group||mqsAlphabeticalName(a.name).localeCompare(mqsAlphabeticalName(b.name),'nl',{sensitivity:'base',numeric:true})||a.code.localeCompare(b.code,'nl',{numeric:true}));
 }
 function mqsPrintPage(availableOnly){
   const rows=mqsSheetRows(availableOnly);
@@ -5135,7 +5130,7 @@ function mqsPrintPage(availableOnly){
   const now=new Date();
   const printDay=String(now.getDate()).padStart(2,'0')+'-'+String(now.getMonth()+1).padStart(2,'0');
   const printYear=now.getFullYear();
-  const groupNames=['MQS','2 KG','TOFFEE','500 GR'];
+  const groupNames=['MQS','TOFFEE','500 GR','2 KG'];
   // Sectiekoppen nemen een volledige tabelrij in en worden nooit tussen producten geplaatst.
   const lines=[];
   let previous=-1;
@@ -5148,8 +5143,8 @@ function mqsPrintPage(availableOnly){
   }
   // Verdeel de lijst over maximaal twee A4-zijden wanneer de hoeveelheid past.
   // 31 compacte rijen per zijde houden schrijfvakken bruikbaar.
-  const maxRowsPerSide=31;
-  const perPage=Math.min(maxRowsPerSide,Math.max(1,Math.ceil(lines.length/2)));
+  const maxRowsPerSide=29;
+  const perPage=Math.min(maxRowsPerSide,Math.max(1,Math.ceil((lines.length+4)/2)));
   const htmlPages=[];
   const rowHeightMm=Math.min(15,Math.max(5.2,177/(perPage+1)));
   if(lines.length>maxRowsPerSide*2){
@@ -5185,7 +5180,7 @@ function mqsDownloadExcel(){
     alert('Excel-export is nog niet geladen. Controleer de internetverbinding en laad de pagina opnieuw.');return;
   }
   const wb=XLSX.utils.book_new();
-  const groups=['MQS','2 KG','TOFFEE','500 GR'];
+  const groups=['MQS','TOFFEE','500 GR','2 KG'];
   for(const [label,availableOnly] of [['Beschikbaar',true],['Niet beschikbaar',false]]){
     const productsForSheet=mqsSheetRows(availableOnly);
     const data=[['Code','Product','','','']];
