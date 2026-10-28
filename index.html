@@ -4373,12 +4373,12 @@ function render(){
               </div>
               <div class="price-lines">
                 ${price>0?`<div class="price-line"><span class="price-label">${mqsVariantLabel(p).toUpperCase()}</span><strong>CG ${price.toFixed(2)}</strong></div>`:''}
-                ${crtPrice>0?`<div class="price-line"><span class="price-label">CRT</span><strong>CG ${crtPrice.toFixed(2)}</strong></div>`:''}
+                ${(crtCode||crtPrice>0||crt>0)?`<div class="price-line"><span class="price-label">CRT Prijs</span><strong>CG ${crtPrice.toFixed(2)}</strong></div>`:''}
               </div>
               ${tabletVisibleWeight(p) && !mqsVariantLabel(p).toLowerCase().includes(tabletVisibleWeight(p).toLowerCase())?`<div class="product-weight">Gewicht: ${safe(tabletVisibleWeight(p))}</div>`:''}
               <div class="mqs-variant-meta">
-                ${(code||hasCrtCount)?`<div>${code?`${mqsVariantLabel(p).toUpperCase()} Code: ${safe(code)}`:''}${code&&hasCrtCount?' &nbsp;|&nbsp; ':''}${hasCrtCount?`Aantal CRT: ${crt}`:''}</div>`:''}
-                ${crtCode?`<div>CRT Code: ${safe(crtCode)}</div>`:''}
+                ${code?`<div>${mqsVariantLabel(p).toUpperCase()} Code: ${safe(code)}</div>`:''}
+                ${(crtCode||crtPrice>0||crt>0)?`<div><strong>CRT Code:</strong> ${safe(crtCode||'—')}</div><div><strong>Aantal per CRT:</strong> ${crt}</div>`:''}
                 ${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
               </div>
               <div class="mqs-order-row" style="grid-template-columns:110px 1fr 90px">
