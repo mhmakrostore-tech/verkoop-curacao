@@ -138,6 +138,7 @@ window.addEventListener('unhandledrejection',function(e){
     <strong>Winkelmand: <span id="catalogCartCount">0</span> regels</strong>
     <span>Totaal: CG <strong id="catalogCartTotal">0.00</strong></span>
   </div>
+  <div id="catalogCartEditList" class="no-print" style="margin-top:10px"></div>
   <div class="button-row no-print">
     <button id="saveCatalogOrderBtn" class="btn primary" type="button">Send Order</button>
     <button id="whatsappCatalogOrderBtn" class="btn secondary" type="button">Via WhatsApp</button>
@@ -828,8 +829,40 @@ function catalogCartItems(){
     };
   }).filter(item=>item&&item.qty>0);
 }
+function renderEditableCatalogCart(items){
+  const target=$('catalogCartEditList');
+  if(!target)return;
+  target.innerHTML=items.map(item=>`<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid #ddd">
+    <span style="flex:1;min-width:140px;font-weight:700">${safe(item.name)} — ${safe(item.unitLabel)}</span>
+    <button type="button" class="btn light" data-cart-minus="${safe(item.productId)}" aria-label="Aantal verlagen">−</button>
+    <input type="number" min="0" step="1" inputmode="numeric" data-cart-qty="${safe(item.productId)}" value="${item.qty}" aria-label="Aantal ${safe(item.name)}" style="width:75px;padding:8px;text-align:center">
+    <button type="button" class="btn light" data-cart-plus="${safe(item.productId)}" aria-label="Aantal verhogen">+</button>
+  </div>`).join('');
+}
+function editCartQuantity(productId,qty){
+  const item=catalogCart[productId];if(!item)return;
+  qty=Math.max(0,Math.floor(Number(qty)||0));
+  // Houd de catalogusinvoer gelijk; anders zou de oude waarde de wijziging overschrijven.
+  document.querySelectorAll('.catalog-order-qty, .mqs-order-qty').forEach(input=>{
+    if(input.dataset.product===productId)input.value=qty?String(qty):'';
+  });
+  if(qty)catalogCart[productId]={...item,qty};else delete catalogCart[productId];
+  updateCatalogCart();saveCatalogDraft();
+}
+document.addEventListener('change',event=>{
+  const input=event.target.closest?.('[data-cart-qty]');
+  if(input)editCartQuantity(input.dataset.cartQty,input.value);
+});
+document.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-cart-minus],[data-cart-plus]');
+  if(!button)return;
+  const id=button.dataset.cartMinus||button.dataset.cartPlus;
+  const delta=button.hasAttribute('data-cart-plus')?1:-1;
+  editCartQuantity(id,(Number(catalogCart[id]?.qty)||0)+delta);
+});
 function updateCatalogCart(){
   const items=catalogCartItems();
+  renderEditableCatalogCart(items);
   $('catalogCartCount').textContent=items.length;
   $('catalogCartTotal').textContent=items.reduce((sum,item)=>sum+item.qty*item.price,0).toFixed(2);buildOrderPreview();
 }
@@ -4231,12 +4264,12 @@ function render(){
   const q=String(searchEl.value||'').toLowerCase(),selectedCategory=String(categoryEl.value||'all'),a=String(availabilityEl.value||'all');
   const filtered=products.filter(p=>{
     const t=`${p.name||''} ${weightText(p)} ${normalizedCodes(p).each} ${normalizedCodes(p).p12} ${normalizedCodes(p).pack} ${normalizedCodes(p).crt} ${p.barcode||''} ${p.category||''}`.toLowerCase();
-    return p.internalOnly!==true&&(!q||t.includes(q))&&(selectedCategory==='all'||(p.category||'OVERIG')===selectedCategory)&&(a==='all'||(a==='available'?p.available!==false:p.available===false));
+    return p.internalOnly!==true&&(!q||t.includes(q))&&(selectedCategory==='all'||normalizeCategoryName(p.category||'OVERIG')===normalizeCategoryName(selectedCategory))&&(a==='all'||(a==='available'?p.available!==false:p.available===false));
   });
 
   const groups={};
   for(const p of filtered){
-    const category=(p.category||'OVERIG').trim()||'Overig';
+    const category=normalizeCategoryName(p.category||'OVERIG')||'OVERIG';
     (groups[category]??=[]).push(p);
   }
 
