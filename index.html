@@ -3357,15 +3357,28 @@ async function deleteCustomer(id){
 }
 
 
+function creditProductCodes(p){
+  return [...new Set([p.code,p.barcode,p.codeEach,p.codeP12,p.codeCrt,p.codePack,p.productCode]
+    .map(v=>String(v||'').trim()).filter(Boolean))];
+}
+function findCreditProduct(value){
+  const term=String(value||'').trim().toLowerCase();
+  if(!term)return null;
+  return products.find(p=>creditProductCodes(p).some(c=>c.toLowerCase()===term))
+    ||products.find(p=>productDisplayName(p).toLowerCase()===term)||null;
+}
 function refreshCreditProductSuggestions(){
   const list=$('creditProductSuggestions');
   if(!list)return;
-  const names=[...new Set(products
-    .filter(p=>!p.internalOnly)
-    .map(p=>productDisplayName(p))
-    .filter(Boolean))]
-    .sort((a,b)=>a.localeCompare(b,'nl',{sensitivity:'base'}));
-  list.innerHTML=names.map(name=>`<option value="${safe(name)}"></option>`).join('');
+  // CREDIT mag ook producten vinden die verborgen zijn in de catalogus.
+  const options=new Set();
+  products.forEach(p=>{
+    const name=productDisplayName(p);
+    if(name)options.add(name);
+    creditProductCodes(p).forEach(code=>options.add(code));
+  });
+  list.innerHTML=[...options].sort((a,b)=>a.localeCompare(b,'nl',{sensitivity:'base'}))
+    .map(value=>`<option value="${safe(value)}"></option>`).join('');
 }
 
 function creditUnitOptions(selected='EACH'){
@@ -3384,6 +3397,21 @@ function addCreditItem(data={}){
     <div><label>Aantal</label><input class="credit-qty" type="number" min="0.01" step="0.01" value="${Number(data.qty||1)}"></div>
     <button type="button" class="btn light remove-credit-item" style="margin-bottom:1px">Verwijderen</button>`;
   box.appendChild(row);
+  const creditInput=row.querySelector('.credit-product');
+  const resolveCreditSelection=()=>{
+    const product=findCreditProduct(creditInput.value);
+    if(product){
+      creditInput.value=productDisplayName(product);
+      const typedCode=String(creditInput.dataset.typedCode||'');
+      const code=typedCode||'';
+      const selectedUnit=code&&String(product.codeCrt||'').toLowerCase()===code.toLowerCase()?'CRT':
+        code&&String(product.codeP12||'').toLowerCase()===code.toLowerCase()?'P12':'EACH';
+      if(code)row.querySelector('.credit-unit').value=selectedUnit;
+    }
+  };
+  creditInput.addEventListener('input',()=>{creditInput.dataset.typedCode=creditInput.value;});
+  creditInput.addEventListener('change',resolveCreditSelection);
+  creditInput.addEventListener('blur',resolveCreditSelection);
   row.querySelector('.remove-credit-item').onclick=()=>row.remove();
 }
 
@@ -3399,7 +3427,7 @@ function getCreditItems(){
     const name=String(row.querySelector('.credit-product')?.value||'').trim();
     const unit=String(row.querySelector('.credit-unit')?.value||'EACH').trim().toUpperCase();
     const qty=Number(row.querySelector('.credit-qty')?.value||0);
-    const found=products.find(p=>productDisplayName(p).toLowerCase()===name.toLowerCase());
+    const found=findCreditProduct(name);
     return {name,qty,unitType:unit.toLowerCase(),unitLabel:unit,productId:found?.id||'',productCode:found?productCodeForUnit(found,unit.toLowerCase()):'',price:0};
   }).filter(i=>i.name&&i.qty>0);
 }
