@@ -4412,7 +4412,7 @@ function render(){
                 <span>Aantal</span>
                 <input class="mqs-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="0" value="${current.qty||''}">
               </div>
-              ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice||0).toFixed(2)}</strong><div style="font-size:12px"><button type="button" class="special-code-select" data-product="${p.id}" title="Kies SPECIAL en vul het aantal in" style="border:1px solid #d60000;border-radius:6px;background:#fff;color:#a00;font-weight:800;padding:6px;cursor:pointer">SPECIAL CODE: ${safe(p.specialCode||'Geen code')}</button> · ${safe(String(p.specialQuantity||0))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
+              ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><label style="display:flex;align-items:center;gap:8px;font-weight:800;color:#c00"><input type="checkbox" class="special-sale-toggle" data-product="${p.id}" ${catalogCart[p.id+'::special']?.qty?'checked':''}> SPECIAL</label><div class="special-sale-fields" style="display:${catalogCart[p.id+'::special']?.qty?'block':'none'}"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice||0).toFixed(2)}</strong><div style="font-size:12px">SPECIAL CODE: ${safe(p.specialCode||'Geen code')} · ${safe(String(p.specialQuantity||0))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div></div>`:''}
             </div>`;
           }).join('');
 
@@ -4503,6 +4503,29 @@ function render(){
         unit.onchange=sync;
         qty.oninput=sync;
 
+        // Eén keuzevak SPECIAL: wissel tussen normale verkoop en SPECIAL CRT.
+        const specialToggle=card.querySelector('.special-sale-toggle');
+        if(specialToggle){
+          const specialFields=card.querySelector('.special-sale-fields');
+          const normalFields=card.querySelector('.catalog-order-controls');
+          const specialQty=card.querySelector('.special-order-qty');
+          const refreshSpecialChoice=()=>{
+            const enabled=specialToggle.checked;
+            specialFields.style.display=enabled?'block':'none';
+            normalFields.style.display=enabled?'none':'';
+            if(enabled){
+              qty.value='';delete catalogCart[p.id];
+              if(specialQty)specialQty.focus();
+            }else{
+              if(specialQty)specialQty.value='';
+              delete catalogCart[p.id+'::special'];
+              qty.focus();
+            }
+            updateCatalogCart();saveCatalogDraft();
+          };
+          specialToggle.addEventListener('change',refreshSpecialChoice);
+          normalFields.style.display=specialToggle.checked?'none':'';
+        }
         // SPECIAL wordt in de beheerder ingesteld; de tablet toont alleen bestelvelden.
         card.querySelector('.edit-product-card').onclick=()=>edit(p.id,true);
         card.querySelector('.duplicate-product-card').onclick=()=>duplicateProduct(p.id);
