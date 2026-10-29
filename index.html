@@ -809,6 +809,7 @@ function currentCatalogOrderNumber(){
 function barcodeCodeForOrderItem(item,product){
   if(!product)return String(item.productCode||'').trim();
   const unit=String(item.unitType||'each').toLowerCase();
+  if(unit==='special')return String(product.specialCode||item.productCode||'').trim();
   if(unit==='crt')return String(product.codeCrt||item.productCode||'').trim();
   if(unit==='p12')return String(product.codeP12||item.productCode||'').trim();
   if(unit==='pack')return String(product.codePack||item.productCode||'').trim();
@@ -1485,7 +1486,7 @@ function normalizedCodes(p){
 }
 function codeForUnit(p,unitType){
   const codes=normalizedCodes(p);
-  return unitType==='p12'?codes.p12:unitType==='p'?codes.pack:unitType==='crt'?codes.crt:codes.each;
+  return unitType==='special'?String(p.specialCode||'').trim():unitType==='p12'?codes.p12:unitType==='p'?codes.pack:unitType==='crt'?codes.crt:codes.each;
 }
 function normalizedPrices(p){
   return {
@@ -1515,12 +1516,14 @@ function unitLabelForProduct(p,unitType){
 }
 function productPriceForUnit(p, unitType){
   const prices=normalizedPrices(p);
+  if(unitType==='special') return Number(p.specialPrice||0);
   if(unitType==='p12') return prices.p12;
   if(unitType==='p') return prices.pack;
   if(unitType==='crt') return prices.crt;
   return prices.each;
 }
 function stockUnitsForSale(unitType, quantity, product){
+  if(unitType==='special') return quantity*Math.max(1,Number(product.specialQuantity||product.unitsPerCarton||1));
   if(unitType==='p12') return quantity*12;
   if(unitType==='p') return quantity*Math.max(1,Number(product.unitsPerPack||0));
   if(unitType==='crt') return quantity*Math.max(1,Number(product.unitsPerCarton||0));
@@ -4172,7 +4175,8 @@ function render(){
           prices.each>0?'<option value="each">EACH</option>':'',
           prices.p12>0?'<option value="p12">P12</option>':'',
           (String(p.category||'').trim().toUpperCase()==='FOOD'&&prices.pack>0&&prices.unitsPerPack>0)?`<option value="p">P${prices.unitsPerPack}</option>`:'',
-          prices.crt>0?'<option value="crt">CRT</option>':''
+          prices.crt>0?'<option value="crt">CRT</option>':'',
+          (p.specialActive&&String(p.specialCode||'').trim()&&Number(p.specialPrice)>0)?'<option value="special">SPECIAL</option>':''
         ].join('');
 
         const card=document.createElement('article');
@@ -4183,6 +4187,7 @@ function render(){
             <h2>${safe(productDisplayName(p))}</h2>
             <div class="meta">${normalizedCodes(p).each?`${String(p.category||'').trim().toUpperCase()==='MQS'?'MQS':'EACH'} Code: ${safe(normalizedCodes(p).each)}<br>`:''}${normalizedCodes(p).p12?`P12 Code: ${safe(normalizedCodes(p).p12)}<br>`:''}${normalizedCodes(p).pack?`P${normalizedPrices(p).unitsPerPack||''} Code: ${safe(normalizedCodes(p).pack)}<br>`:''}${normalizedCodes(p).crt?`CRT Code: ${safe(normalizedCodes(p).crt)}<br>`:''}${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
             ${String(p.notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String(p.notes).trim())}</div>`:''}
+            ${p.specialActive?`<div style="background:#d00000;color:white;text-align:center;font-size:1.25rem;font-weight:900;border-radius:7px;padding:6px;margin:8px 0">SPECIAL</div><div style="background:#fff1a6;padding:7px;border-radius:6px;font-weight:700">Code: ${safe(p.specialCode||'')} · Aantal: ${safe(String(p.specialQuantity||''))} · Prijs: CG ${safe(Number(p.specialPrice||0).toFixed(2))}</div>`:''}
             ${productPriceHtml(p)}
             <div class="catalog-order-controls">
               <select class="catalog-order-unit" data-product="${p.id}">${options}</select>
