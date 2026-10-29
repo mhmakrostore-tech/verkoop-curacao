@@ -824,6 +824,7 @@ function catalogCartItems(){
     const product=products.find(p=>p.id===baseId);
     if(!product)return null;
     const unitType=item.unitType||'each';
+    if(unitType==='special'&&!product.specialActive)return null;
     const qty=Number(item.qty||0);
     const price=productPriceForUnit(product,unitType);
     return {
@@ -863,6 +864,7 @@ function editCartQuantity(productId,qty){
   if(qty)catalogCart[productId]={...item,qty};else delete catalogCart[productId];
   updateCatalogCart();saveCatalogDraft();
 }
+document.addEventListener('click',event=>{const button=event.target.closest?.('.special-code-select');if(!button)return;const card=button.closest('.card');const input=Array.from(card?.querySelectorAll('.special-order-qty')||[]).find(el=>el.dataset.product===button.dataset.product);if(input){input.focus();input.select();}});
 document.addEventListener('input',event=>{const input=event.target.closest?.('.special-order-qty');if(input){const id=input.dataset.product+'::special';const qty=Math.max(0,Math.floor(Number(input.value)||0));if(qty)catalogCart[id]={unitType:'special',qty};else delete catalogCart[id];updateCatalogCart();saveCatalogDraft();}});
 document.addEventListener('change',event=>{
   const input=event.target.closest?.('[data-cart-qty]');
@@ -4410,7 +4412,7 @@ function render(){
                 <span>Aantal</span>
                 <input class="mqs-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="0" value="${current.qty||''}">
               </div>
-              ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
+              ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice||0).toFixed(2)}</strong><div style="font-size:12px"><button type="button" class="special-code-select" data-product="${p.id}" title="Kies SPECIAL en vul het aantal in" style="border:1px solid #d60000;border-radius:6px;background:#fff;color:#a00;font-weight:800;padding:6px;cursor:pointer">SPECIAL CODE: ${safe(p.specialCode||'Geen code')}</button> · ${safe(String(p.specialQuantity||0))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
             </div>`;
           }).join('');
 
@@ -4420,15 +4422,6 @@ function render(){
               <h2>${safe(mqsGroupDisplayName(group))}</h2>
               ${String((group.find(p=>String(p.notes||'').trim())||{}).notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String((group.find(p=>String(p.notes||'').trim())||{}).notes||'').trim())}</div>`:''}
               <div class="mqs-variants">${variantsHtml}</div>
-              <div class="special-admin-controls no-print" style="margin:9px 0;padding:9px;border:2px solid #eab308;border-radius:8px">
-              <label style="font-weight:900"><input class="special-toggle" type="checkbox" ${group[0].specialActive?'checked':''}> SPECIAL</label>
-              <div class="special-fields" style="display:${group[0].specialActive?'grid':'none'};grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px">
-                <input class="special-code" placeholder="Code" value="${safe(first.specialCode||'')}">
-                <input class="special-quantity" type="number" min="0" placeholder="Aantal per CRT" value="${safe(String(first.specialQuantity||''))}">
-                <input class="special-price" type="number" min="0" step="0.01" placeholder="Prijs CG" value="${safe(String(first.specialPrice||''))}">
-              </div>
-              <button type="button" class="special-save btn light" style="margin-top:6px">SPECIAL opslaan</button>
-            </div>
             <div class="product-admin-actions">
                 <button type="button" class="btn light edit-mqs-group">Bewerken</button>
                 <button type="button" class="btn light duplicate-mqs-group">Dupliceren</button>
@@ -4480,7 +4473,7 @@ function render(){
             <div class="cat">${safe(p.category||'OVERIG')}</div>
             <h2>${safe(productDisplayName(p))}</h2>
             ${tabletVisibleWeight(p) && !productDisplayName(p).toLowerCase().includes(tabletVisibleWeight(p).toLowerCase())?`<div class="product-weight">Gewicht: ${safe(tabletVisibleWeight(p))}</div>`:''}
-            <div class="meta">${normalizedCodes(p).each?`${String(p.category||'').trim().toUpperCase()==='MQS'?'MQS':'EACH'} Code: ${safe(normalizedCodes(p).each)}<br>`:''}${normalizedCodes(p).p12?`P12 Code: ${safe(normalizedCodes(p).p12)}<br>`:''}${normalizedCodes(p).pack?`P${normalizedPrices(p).unitsPerPack||''} Code: ${safe(normalizedCodes(p).pack)}<br>`:''}${normalizedCodes(p).crt?`CRT Code: ${safe(normalizedCodes(p).crt)}<br>`:''}${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}
+            <div class="meta">${normalizedCodes(p).each?`${String(p.category||'').trim().toUpperCase()==='MQS'?'MQS':'EACH'} Code: ${safe(normalizedCodes(p).each)}<br>`:''}${normalizedCodes(p).p12?`P12 Code: ${safe(normalizedCodes(p).p12)}<br>`:''}${normalizedCodes(p).pack?`P${normalizedPrices(p).unitsPerPack||''} Code: ${safe(normalizedCodes(p).pack)}<br>`:''}${normalizedCodes(p).crt?`CRT Code: ${safe(normalizedCodes(p).crt)}<br>`:''}${nearestExpiryDate(p)?`<div class="exp-line"><strong>EXP:</strong> ${safe(formatDate(nearestExpiryDate(p)))}</div>`:''}</div>
             ${String(p.notes||'').trim()?`<div class="catalog-note"><strong>Notitie:</strong> ${safe(String(p.notes).trim())}</div>`:''}
             ${p.specialActive?`<div class="special-tablet-info"><strong>SPECIAL</strong><div>Code: ${safe(p.specialCode||p.code||'')} · Aantal per CRT: ${safe(String(p.specialQuantity||''))} · Prijs: CG ${safe(String(p.specialPrice||''))}</div></div>`:''}
             ${productPriceHtml(p)}
@@ -4488,7 +4481,7 @@ function render(){
               <select class="catalog-order-unit" data-product="${p.id}">${options}</select>
               <input class="catalog-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="Aantal" value="${current.qty||''}">
             </div>
-            ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice).toFixed(2)}</strong><div style="font-size:12px">Code: ${safe(p.specialCode||'')} · ${safe(String(p.specialQuantity))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
+            ${p.specialActive?`<div class="special-order-row" style="margin-top:8px;padding:8px;border:2px solid #d60000;border-radius:8px"><strong style="color:#d60000">SPECIAL CRT — CG ${Number(p.specialPrice||0).toFixed(2)}</strong><div style="font-size:12px"><button type="button" class="special-code-select" data-product="${p.id}" title="Kies SPECIAL en vul het aantal in" style="border:1px solid #d60000;border-radius:6px;background:#fff;color:#a00;font-weight:800;padding:6px;cursor:pointer">SPECIAL CODE: ${safe(p.specialCode||'Geen code')}</button> · ${safe(String(p.specialQuantity||0))} PCS per CRT</div><label>Aantal SPECIAL CRT <input class="special-order-qty" data-product="${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${catalogCart[p.id+'::special']?.qty||''}" style="width:90px"></label></div>`:''}
             <div class="product-admin-actions">
               <button type="button" class="btn light edit-product-card" data-id="${p.id}">Bewerken</button>
               <button type="button" class="btn light duplicate-product-card" data-id="${p.id}">Dupliceren</button>
