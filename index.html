@@ -924,7 +924,14 @@ async function saveCatalogOrder(){
       await setDoc(doc(db,'sales',editingSaleId),data,{merge:true});
       msg($('catalogOrderMessage'),'Bestelling aangepast.');
     }else{
-      await addDoc(collection(db,'sales'),{...data,createdAt:serverTimestamp()});
+      // Tabletgebruikers laden geen verkoopgeschiedenis: controleer de teller bij opslaan.
+      const savedSales=await getDocs(collection(db,'sales'));
+      sales=savedSales.docs.map(d=>({id:d.id,...d.data()}));
+      const nextNumber=nextPickOrderNumber();
+      data.orderNumber=nextNumber;
+      data.pickOrderNumber=nextNumber;
+      const savedOrder=await addDoc(collection(db,'sales'),{...data,createdAt:serverTimestamp()});
+      sales.push({id:savedOrder.id,...data});
       msg($('catalogOrderMessage'),'Bestelling opgeslagen.');
     }
     rememberCustomerName(customerName);
