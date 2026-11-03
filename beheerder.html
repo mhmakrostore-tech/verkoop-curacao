@@ -48,6 +48,7 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 .catalog-note{margin-top:10px;padding:9px 10px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;font-size:.92rem;line-height:1.4}
 .catalog-note strong{color:#9a3412}.dr-results{max-height:300px;overflow:auto;display:grid;gap:6px;margin-top:8px}.drOption{border:1px solid #ddd;border-radius:10px;padding:11px;background:#fff;text-align:left;cursor:pointer}.drOption:hover{background:#fef9c3}.drOption small{display:block;color:#666;margin-top:4px}#drCompanyHistory,#drAllRecords{margin-top:14px}
 html,body{scroll-behavior:auto!important} .category-jumpbar{scroll-behavior:auto!important}.admin-order-btn{margin-left:6px;padding:5px 9px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer;font-weight:bold}
+.special-product-card{border:3px solid #b91c1c!important}.special-red-banner{background:#b91c1c;color:white;text-align:center;font-weight:900;padding:10px;font-size:1.12rem;letter-spacing:.06em}.special-admin-box{margin:9px 0;padding:10px;border:2px solid #b91c1c;border-radius:9px;background:#fff}.special-admin-box label{font-weight:800}.special-admin-box input[type=number]{width:100%}
 </style>
 
 <style>
@@ -716,8 +717,10 @@ function catalogCartItems(){
     if(!product)return null;
     const unitType=item.unitType||'each';
     const qty=Number(item.qty||0);
-    const price=productPriceForUnit(product,unitType);
+    const special=!!item.special&&!!product.specialActive&&['each','crt'].includes(unitType)&&Number(unitType==='crt'?product.specialCrtPrice:product.specialEachPrice)>0;
+    const price=special?Number(unitType==='crt'?product.specialCrtPrice:product.specialEachPrice):productPriceForUnit(product,unitType);
     return {
+      isSpecial:special,
       productId,
       productCode:codeForUnit(product,unitType),
       name:productDisplayName(product),
@@ -3900,6 +3903,12 @@ function addAdminAvailabilityControls(){
   });
 }
 
+function sharedCategoryCompare(a,b){
+ const order=sharedCategorySettings.order||[];
+ const ai=order.indexOf(normalizeCategoryName(a)),bi=order.indexOf(normalizeCategoryName(b));
+ if(ai!==-1||bi!==-1)return ai===-1?1:bi===-1?-1:ai-bi;
+ return String(a).localeCompare(String(b),'nl',{sensitivity:'base'});
+}
 function render(){
   const searchEl=$('search'), categoryEl=$('category'), availabilityEl=$('availability');
   if(!searchEl||!categoryEl||!availabilityEl||!$('grid')||!$('categoryJumpbar'))return;
@@ -4172,11 +4181,30 @@ async function setCatalogAvailability(ids,makeAvailable){
   const keepScrollY=window.scrollY;
   try{
     await Promise.all(target.map(id=>setDoc(doc(db,'catalogProducts',id),{available:!!makeAvailable},{merge:true})));
-    requestAnimationFrame(()=>window.scrollTo(0,keepScrollY));
+    requestAnimationFrame(()=>{if(Math.abs(window.scrollY-keepScrollY)>20)window.scrollTo(0,keepScrollY);});
   }catch(e){
     console.error(e);
     alert('Catalogus-status opslaan is mislukt. Probeer opnieuw.');
   }
+}
+function addSpecialAdminBox(row,p){
+ if(currentRole!=='owner'||!p)return;
+ const box=document.createElement('div');box.className='special-admin-box';
+ box.innerHTML=`<label><input type="checkbox" class="special-active" ${p.specialActive?'checked':''}> SPECIAL</label>
+ <div class="special-price-fields" style="display:${p.specialActive?'grid':'none'};grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px">
+ <label>EACH speciale prijs (CG)<input class="special-each" type="number" min="0" step="0.01" value="${safe(String(p.specialEachPrice??''))}"></label>
+ <label>CRT speciale prijs (CG)<input class="special-crt" type="number" min="0" step="0.01" value="${safe(String(p.specialCrtPrice??''))}"></label></div>
+ <button type="button" class="btn light special-admin-save" style="margin-top:8px">SPECIAL opslaan</button><span class="special-admin-status" style="margin-left:8px"></span>`;
+ box.querySelector('.special-active').onchange=e=>box.querySelector('.special-price-fields').style.display=e.target.checked?'grid':'none';
+ box.querySelector('.special-admin-save').onclick=async()=>{
+  const btn=box.querySelector('.special-admin-save'),status=box.querySelector('.special-admin-status');
+  const data={specialActive:box.querySelector('.special-active').checked,specialEachPrice:box.querySelector('.special-each').value.trim(),specialCrtPrice:box.querySelector('.special-crt').value.trim()};
+  btn.disabled=true;
+  try{await setDoc(doc(db,'catalogProducts',p.id),data,{merge:true});Object.assign(p,data);status.textContent='Opgeslagen ✓';status.style.color='#15803d';}
+  catch(e){status.textContent='Opslaan mislukt: '+e.message;status.style.color='#b91c1c';}
+  finally{btn.disabled=false;}
+ };
+ row.appendChild(box);
 }
 function renderList(){
   const root=$('list');
@@ -4304,6 +4332,7 @@ function renderList(){
           row.querySelector('.edit-one').onclick=()=>{search.value='';edit(first.id);};
           row.querySelector('.duplicate-one').onclick=()=>duplicateProduct(first.id);
           row.querySelector('.delete-one').onclick=()=>deleteMQSGroupByName(mqsGroupDisplayName(group));
+          addSpecialAdminBox(row,first);
           itemsBox.appendChild(row);
         }
         return;
@@ -4331,6 +4360,7 @@ function renderList(){
         row.querySelector('.edit-one').onclick=()=>{search.value='';edit(p.id);};
         row.querySelector('.duplicate-one').onclick=()=>duplicateProduct(p.id);
         row.querySelector('.delete-one').onclick=()=>deleteProductById(p.id);
+        addSpecialAdminBox(row,p);
         itemsBox.appendChild(row);
       }
     };

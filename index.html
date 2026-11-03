@@ -735,7 +735,7 @@ function catalogCartItems(){
     const unitSelector=input.classList.contains('mqs-order-qty')?'.mqs-order-unit':'.catalog-order-unit';
     const unit=document.querySelector(`${unitSelector}[data-product="${CSS.escape(productId)}"]`);
     const unitType=unit?.value||catalogCart[productId]?.unitType||'each';
-    if(qty>0)catalogCart[productId]={unitType,qty,special:document.querySelector(`.catalog-order-special[data-product="${CSS.escape(productId)}"]`)?.value==='special'||false};
+    if(qty>0)catalogCart[productId]={unitType,qty};
     else if(Object.prototype.hasOwnProperty.call(catalogCart,productId))delete catalogCart[productId];
   });
   return Object.entries(catalogCart).map(([productId,item])=>{
@@ -761,10 +761,10 @@ function updateCatalogCart(){
   $('catalogCartCount').textContent=items.length;
   $('catalogCartTotal').textContent=items.reduce((sum,item)=>sum+item.qty*item.price,0).toFixed(2);buildOrderPreview();
 }
-function setCatalogCartItem(productId,unitType,qty,special=false){
+function setCatalogCartItem(productId,unitType,qty){
   qty=Number(qty||0);
   if(qty<=0)delete catalogCart[productId];
-  else catalogCart[productId]={unitType,qty,special};
+  else catalogCart[productId]={unitType,qty};
   updateCatalogCart();
 }
 function clearCatalogOrder(){
@@ -944,7 +944,7 @@ function editSavedOrder(id){
   const creditOpt=document.getElementById('catalogCreditOption'); if(creditOpt)creditOpt.checked=editCredit;
   catalogCart={};
   (sale.items||[]).forEach(item=>{
-    if(item.productId)catalogCart[item.productId]={unitType:item.unitType||'each',qty:Number(item.qty||0),special:!!item.isSpecial};
+    if(item.productId)catalogCart[item.productId]={unitType:item.unitType||'each',qty:Number(item.qty||0)};
   });
   document.querySelector('[data-tab="catalog"]').click();
   render();
@@ -2878,7 +2878,7 @@ function renderPickOrders(){
   const list=sales.filter(s=>!isPickOrderRead(s)).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
   box.innerHTML=list.length?'':'<div class="meta">Geen nieuwe bestellingen.</div>';
   for(const s of list){
-    const items=(s.items||[]).map(i=>`<div><strong>${safe(i.name||'')}</strong>${i.isSpecial?' <strong style="color:#b91c1c">SPECIAL</strong>':''}${i.productCode?` · Code: ${safe(i.productCode)}`:''} · <strong>${safe(i.unitLabel||(i.unitType||'each').toUpperCase())} · ${Number(i.qty||0)}</strong></div>`).join('');
+    const items=(s.items||[]).map(i=>`<div><strong>${safe(i.name||'')}</strong>${i.productCode?` · Code: ${safe(i.productCode)}`:''} · <strong>${safe(i.unitLabel||(i.unitType||'each').toUpperCase())} · ${Number(i.qty||0)}</strong></div>`).join('');
     const card=document.createElement('div');
     card.className='history-card pick-order-new';
     card.innerHTML=`<div class="history-head"><div><strong>${safe(s.customerName||'Onbekende klant')}</strong><div class="meta">${safe(pickOrderDate(s))}${s.orderType?` · ${safe(storedOrderLabel(s))}`:''}</div></div><span class="pick-unread">NIEUW</span></div><div style="margin-top:12px;line-height:1.7">${items}</div>${s.note?`<div style="margin-top:10px"><strong>Notitie:</strong> ${safe(s.note)}</div>`:''}<div class="button-row no-print" style="margin-top:12px"><button type="button" class="btn primary print-pick-order" data-id="${s.id}">PRINT PICK BON</button><button type="button" class="btn light seen-pick-order" data-id="${s.id}">GELEZEN</button></div>`;
@@ -2931,7 +2931,7 @@ async function deleteOldPickOrder(id){
 }
 async function printPickOrder(id){
   const s=sales.find(x=>x.id===id);if(!s)return;
-  const rows=(s.items||[]).map(i=>`<tr><td>${safe(i.name||'')}${i.isSpecial?' <strong style="color:#b91c1c">SPECIAL</strong>':''}</td><td>${safe(i.productCode||'')}</td><td>${safe(i.unitLabel||(i.unitType||'each').toUpperCase())}</td><td>${Number(i.qty||0)}</td></tr>`).join('');
+  const rows=(s.items||[]).map(i=>`<tr><td>${safe(i.name||'')}</td><td>${safe(i.productCode||'')}</td><td>${safe(i.unitLabel||(i.unitType||'each').toUpperCase())}</td><td>${Number(i.qty||0)}</td></tr>`).join('');
   $('pickPrintPreview').innerHTML=`<h1>ORDER PICK BON</h1><div style="margin:14px 0"><strong>Klant:</strong> ${safe(s.customerName||'Onbekende klant')}<br><strong>Datum:</strong> ${safe(pickOrderDate(s))}${s.orderType?`<br><strong>Bestelling:</strong> ${safe(storedOrderLabel(s))}`:''}</div><table class="order-table"><thead><tr><th>Product</th><th>Code</th><th>Eenheid</th><th>Aantal</th></tr></thead><tbody>${rows}</tbody></table>${s.note?`<div style="margin-top:14px"><strong>Notitie:</strong> ${safe(s.note)}</div>`:''}`;
   await markPickSeen(id);
   window.print();
@@ -3486,25 +3486,18 @@ async function deleteAllSavedOrders(){
   }
 }
 
-let specialHistoryOnly=false;
 function renderHistory(){
-  const historyBox=$('historyList');
-  if(historyBox && !document.getElementById('specialHistoryToggle')){
-    const b=document.createElement('button');b.id='specialHistoryToggle';b.type='button';b.className='btn light';b.textContent='SPECIAL HISTORIE';b.style.marginBottom='12px';
-    b.onclick=()=>{specialHistoryOnly=!specialHistoryOnly;b.textContent=specialHistoryOnly?'ALLE AANKOPEN':'SPECIAL HISTORIE';renderHistory();};
-    historyBox.parentNode.insertBefore(b,historyBox);
-  }
   const q=$('customerSearch').value.toLowerCase();
-  const list=sales.filter(s=>(!specialHistoryOnly||(s.items||[]).some(i=>i.isSpecial)) && (`${s.customerName||''} ${(s.items||[]).map(i=>i.name+' '+i.productCode).join(' ')}`).toLowerCase().includes(q))
+  const list=sales.filter(s=>(`${s.customerName||''}`).toLowerCase().includes(q))
     .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
   $('historyList').innerHTML=list.length?'':'<div class="meta">Nog geen verkopen.</div>';
   for(const s of list){
     const card=document.createElement('div'); card.className='history-card';
     const d=s.createdAt?.toDate?.(),date=d?d.toLocaleString('nl-NL'):'Bezig met opslaan…';
     const isCredit=s.isCredit===true || s.recordType==='credit';
-    const items=(s.items||[]).filter(i=>!specialHistoryOnly||i.isSpecial).map(i=>isCredit
+    const items=(s.items||[]).map(i=>isCredit
       ? `${Number(i.qty||0)} × ${safe(i.unitLabel||(i.unitType||'EACH').toUpperCase())} ${i.productCode?`[${safe(i.productCode)}] `:''}${safe(i.name)}`
-      : `${Number(i.qty||0)} × ${i.unitLabel||(i.unitType||'each').toUpperCase()} ${i.productCode?`[${safe(i.productCode)}] `:''}${safe(i.name)}${i.isSpecial?' <strong style="color:#b91c1c">SPECIAL</strong>':''} — CG ${(Number(i.qty||0)*Number(i.price||0)).toFixed(2)}`
+      : `${Number(i.qty||0)} × ${i.unitLabel||(i.unitType||'each').toUpperCase()} ${i.productCode?`[${safe(i.productCode)}] `:''}${safe(i.name)} — CG ${(Number(i.qty||0)*Number(i.price||0)).toFixed(2)}`
     ).join('<br>');
     if(isCredit){card.style.borderLeft='7px solid #b91c1c';card.style.background='#fff7f7';}
     card.innerHTML=`<div class="history-head"><div><strong>${safe(s.customerName||'Onbekende klant')}</strong>${isCredit?' <span style="display:inline-block;margin-left:8px;padding:4px 9px;border-radius:999px;background:#b91c1c;color:#fff;font-size:.8rem;font-weight:900">CREDIT</span>':''}<div class="meta">${s.orderNumber?`${safe(s.orderNumber)} · `:''}${date}${isCredit?' · CREDIT':(s.orderType?` · ${safe(storedOrderLabel(s))}`:'')}</div></div></div><div class="meta" style="margin-top:10px">${items}</div>${isCredit?'':`<div class="total-box">Totaal: CG ${Number(s.total||0).toFixed(2)}</div>`}${s.note?`<div class="meta">Opmerking: ${safe(s.note)}</div>`:''}<div class="button-row">
@@ -4193,7 +4186,6 @@ function render(){
             ${productPriceHtml(p)}
             <div class="catalog-order-controls">
               <select class="catalog-order-unit" data-product="${p.id}">${options}</select>
-              ${p.specialActive?`<select class="catalog-order-special" data-product="${p.id}" aria-label="Prijskeuze"><option value="normal">NORMAAL</option><option value="special" ${current.special?'selected':''}>SPECIAL</option></select>`:''}
               <input class="catalog-order-qty" data-product="${p.id}" type="number" min="0" step="1" placeholder="Aantal" value="${current.qty||''}">
             </div>
             <div class="product-admin-actions">
@@ -4211,9 +4203,7 @@ function render(){
         if([...unit.options].some(o=>o.value===current.unitType))unit.value=current.unitType;
         else if(unit.options.length)unit.value=unit.options[0].value;
 
-        const specialChoice=card.querySelector('.catalog-order-special');
-         const sync=()=>setCatalogCartItem(p.id,unit.value,qty.value,specialChoice?.value==='special');
-         if(specialChoice)specialChoice.onchange=sync;
+        const sync=()=>setCatalogCartItem(p.id,unit.value,qty.value);
         unit.addEventListener('focus',clearCatalogSearchForNextProduct);
         qty.addEventListener('focus',clearCatalogSearchForNextProduct);
         unit.onchange=sync;
