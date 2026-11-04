@@ -66,6 +66,14 @@ body.tablet-mode .delete-mqs-group{display:none!important}
  .order-preview .bon-barcode svg{width:38mm!important;height:12mm!important}
  .order-preview .total-box{font-size:16pt!important;text-align:left!important}
 }
+
+@media print{
+ .pick-print-preview{padding:0!important;margin:0!important;font-size:10pt!important}
+ .pick-print-preview h1{margin:0 0 5px!important;font-size:15pt!important}
+ .pick-print-preview .order-table{border-collapse:collapse!important;width:100%!important}
+ .pick-print-preview .order-table th,.pick-print-preview .order-table td{padding:3px 4px!important;line-height:1.12!important;font-size:10pt!important}
+ .pick-print-preview tr{break-inside:avoid;page-break-inside:avoid}
+}
 </style>
 
 <style>
@@ -923,7 +931,26 @@ async function saveCatalogOrder(){
       await setDoc(doc(db,'sales',editingSaleId),data,{merge:true});
       msg($('catalogOrderMessage'),'Bestelling aangepast.');
     }else{
-      await addDoc(collection(db,'sales'),{...data,createdAt:serverTimestamp()});
+      // Allocate a single shared sequential number atomically across all devices.
+      // The preview number is provisional; the saved number is authoritative.
+      const yy=String(new Date().getFullYear()).slice(-2);
+      const existing=await getDocs(collection(db,'sales'));
+      let highest=0;
+      existing.forEach(snapshot=>{
+        const order=snapshot.data();
+        for(const value of [order.pickOrderNumber,order.orderNumber]){
+          const match=String(value||'').match(new RegExp('^'+yy+'-(\\d+)$'));
+          if(match)highest=Math.max(highest,Number(match[1]));
+        }
+      });
+      const counterRef=doc(db,'orderNumberCounters',yy);
+      const allocated=await runTransaction(db,async transaction=>{
+        const snapshot=await transaction.get(counterRef);
+        const next=Math.max(highest,Number(snapshot.exists()?snapshot.data().lastNumber:0)||0)+1;
+        transaction.set(counterRef,{lastNumber:next,year:yy,updatedAt:serverTimestamp()});
+        return `${yy}-${String(next).padStart(2,'0')}`;
+      });
+      await addDoc(collection(db,'sales'),{...data,orderNumber:allocated,pickOrderNumber:allocated,createdAt:serverTimestamp()});
       msg($('catalogOrderMessage'),'Bestelling opgeslagen.');
     }
     rememberCustomerName(customerName);

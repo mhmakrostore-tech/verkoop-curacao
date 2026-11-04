@@ -49,6 +49,14 @@ body.tablet-mode .delete-mqs-group{display:none!important}
 .catalog-note strong{color:#9a3412}.dr-results{max-height:300px;overflow:auto;display:grid;gap:6px;margin-top:8px}.drOption{border:1px solid #ddd;border-radius:10px;padding:11px;background:#fff;text-align:left;cursor:pointer}.drOption:hover{background:#fef9c3}.drOption small{display:block;color:#666;margin-top:4px}#drCompanyHistory,#drAllRecords{margin-top:14px}
 html,body{scroll-behavior:auto!important} .category-jumpbar{scroll-behavior:auto!important}.admin-order-btn{margin-left:6px;padding:5px 9px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer;font-weight:bold}
 .special-product-card{border:3px solid #b91c1c!important}.special-red-banner{background:#b91c1c;color:white;text-align:center;font-weight:900;padding:10px;font-size:1.12rem;letter-spacing:.06em}.special-admin-box{margin:9px 0;padding:10px;border:2px solid #b91c1c;border-radius:9px;background:#fff}.special-admin-box label{font-weight:800}.special-admin-box input[type=number]{width:100%}
+
+@media print{
+ .pick-print-preview{padding:0!important;margin:0!important;font-size:10pt!important}
+ .pick-print-preview h1{margin:0 0 5px!important;font-size:15pt!important}
+ .pick-print-preview .order-table{border-collapse:collapse!important;width:100%!important}
+ .pick-print-preview .order-table th,.pick-print-preview .order-table td{padding:3px 4px!important;line-height:1.12!important;font-size:10pt!important}
+ .pick-print-preview tr{break-inside:avoid;page-break-inside:avoid}
+}
 </style>
 
 <style>
@@ -835,7 +843,26 @@ async function saveCatalogOrder(){
       await setDoc(doc(db,'sales',editingSaleId),data,{merge:true});
       msg($('catalogOrderMessage'),'Bestelling aangepast.');
     }else{
-      await addDoc(collection(db,'sales'),{...data,createdAt:serverTimestamp()});
+      // Allocate a single shared sequential number atomically across all devices.
+      // The preview number is provisional; the saved number is authoritative.
+      const yy=String(new Date().getFullYear()).slice(-2);
+      const existing=await getDocs(collection(db,'sales'));
+      let highest=0;
+      existing.forEach(snapshot=>{
+        const order=snapshot.data();
+        for(const value of [order.pickOrderNumber,order.orderNumber]){
+          const match=String(value||'').match(new RegExp('^'+yy+'-(\\d+)$'));
+          if(match)highest=Math.max(highest,Number(match[1]));
+        }
+      });
+      const counterRef=doc(db,'orderNumberCounters',yy);
+      const allocated=await runTransaction(db,async transaction=>{
+        const snapshot=await transaction.get(counterRef);
+        const next=Math.max(highest,Number(snapshot.exists()?snapshot.data().lastNumber:0)||0)+1;
+        transaction.set(counterRef,{lastNumber:next,year:yy,updatedAt:serverTimestamp()});
+        return `${yy}-${String(next).padStart(2,'0')}`;
+      });
+      await addDoc(collection(db,'sales'),{...data,orderNumber:allocated,pickOrderNumber:allocated,createdAt:serverTimestamp()});
       msg($('catalogOrderMessage'),'Bestelling opgeslagen.');
     }
     rememberCustomerName(customerName);
