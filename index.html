@@ -66,14 +66,6 @@ body.tablet-mode .delete-mqs-group{display:none!important}
  .order-preview .bon-barcode svg{width:38mm!important;height:12mm!important}
  .order-preview .total-box{font-size:16pt!important;text-align:left!important}
 }
-
-@media print{
- .pick-print-preview{padding:0!important;margin:0!important;font-size:10pt!important}
- .pick-print-preview h1{margin:0 0 5px!important;font-size:15pt!important}
- .pick-print-preview .order-table{border-collapse:collapse!important;width:100%!important}
- .pick-print-preview .order-table th,.pick-print-preview .order-table td{padding:3px 4px!important;line-height:1.12!important;font-size:10pt!important}
- .pick-print-preview tr{break-inside:avoid;page-break-inside:avoid}
-}
 </style>
 
 <style>
@@ -931,26 +923,7 @@ async function saveCatalogOrder(){
       await setDoc(doc(db,'sales',editingSaleId),data,{merge:true});
       msg($('catalogOrderMessage'),'Bestelling aangepast.');
     }else{
-      // Allocate a single shared sequential number atomically across all devices.
-      // The preview number is provisional; the saved number is authoritative.
-      const yy=String(new Date().getFullYear()).slice(-2);
-      const existing=await getDocs(collection(db,'sales'));
-      let highest=0;
-      existing.forEach(snapshot=>{
-        const order=snapshot.data();
-        for(const value of [order.pickOrderNumber,order.orderNumber]){
-          const match=String(value||'').match(new RegExp('^'+yy+'-(\\d+)$'));
-          if(match)highest=Math.max(highest,Number(match[1]));
-        }
-      });
-      const counterRef=doc(db,'orderNumberCounters',yy);
-      const allocated=await runTransaction(db,async transaction=>{
-        const snapshot=await transaction.get(counterRef);
-        const next=Math.max(highest,Number(snapshot.exists()?snapshot.data().lastNumber:0)||0)+1;
-        transaction.set(counterRef,{lastNumber:next,year:yy,updatedAt:serverTimestamp()});
-        return `${yy}-${String(next).padStart(2,'0')}`;
-      });
-      await addDoc(collection(db,'sales'),{...data,orderNumber:allocated,pickOrderNumber:allocated,createdAt:serverTimestamp()});
+      await addDoc(collection(db,'sales'),{...data,createdAt:serverTimestamp()});
       msg($('catalogOrderMessage'),'Bestelling opgeslagen.');
     }
     rememberCustomerName(customerName);
@@ -4068,7 +4041,7 @@ function render(){
     const jump=document.createElement('button');
     jump.type='button';
     jump.textContent=`${category} (${shownCount})`;
-    jump.onclick=()=>document.getElementById(safeId)?.scrollIntoView({behavior:'smooth',block:'start'});
+    jump.onclick=()=>document.getElementById(safeId)?.scrollIntoView({behavior:'instant',block:'start'});
     $('categoryJumpbar').appendChild(jump);
 
     const section=document.createElement('section');
@@ -4507,30 +4480,9 @@ function setProductFormMode(editing){
 function clearNormalEditForm(){editingMQSOriginalName='';setProductFormMode(false);
   $('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('expiry1').value='';$('expiry2').value='';$('barcode').value='';$('notes').value='';$('available').checked=true;$('internalOnly').checked=false;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';
 }
-function showSpecialInProductEditor(p){
-  let box=document.getElementById('specialProductEditor');
-  if(!box){
-    box=document.createElement('div');box.id='specialProductEditor';box.className='special-admin-box';
-    const anchor=document.getElementById('formTitle');
-    if(anchor)anchor.insertAdjacentElement('afterend',box);
-  }
-  if(!p){box.style.display='none';return;}
-  box.style.display='block';
-  box.innerHTML=`<h3 style="margin:0 0 9px">SPECIAL prijzen</h3><label><input type="checkbox" id="editSpecialActive" ${p.specialActive?'checked':''}> SPECIAL inschakelen</label><div id="editSpecialFields" style="display:${p.specialActive?'grid':'none'};grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px"><label>SPECIAL EACH (CG)<input type="number" min="0" step="0.01" id="editSpecialEach" value="${safe(String(p.specialEachPrice??''))}"></label><label>SPECIAL CRT (CG)<input type="number" min="0" step="0.01" id="editSpecialCrt" value="${safe(String(p.specialCrtPrice??''))}"></label><label>Aantal EACH per CRT<input type="number" min="1" step="1" id="editSpecialCarton" value="${safe(String(p.unitsPerCarton??''))}"></label></div><button type="button" class="btn light" id="editSpecialSave" style="margin-top:10px">SPECIAL opslaan</button><span id="editSpecialStatus" style="margin-left:8px"></span>`;
-  document.getElementById('editSpecialActive').onchange=e=>document.getElementById('editSpecialFields').style.display=e.target.checked?'grid':'none';
-  document.getElementById('editSpecialSave').onclick=async()=>{
-    const btn=document.getElementById('editSpecialSave');const status=document.getElementById('editSpecialStatus');
-    const data={specialActive:document.getElementById('editSpecialActive').checked,specialEachPrice:document.getElementById('editSpecialEach').value.trim(),specialCrtPrice:document.getElementById('editSpecialCrt').value.trim(),unitsPerCarton:Number(document.getElementById('editSpecialCarton').value||0)};
-    btn.disabled=true;
-    try{await setDoc(doc(db,'catalogProducts',p.id),data,{merge:true});Object.assign(p,data);status.textContent='Opgeslagen ✓';status.style.color='green';}
-    catch(err){status.textContent='Opslaan mislukt: '+err.message;status.style.color='red';}
-    finally{btn.disabled=false;}
-  };
-}
 function edit(id){
   if(currentRole==='sales')return;
   const p=products.find(x=>x.id===id);if(!p)return;
-  showSpecialInProductEditor(p);
   refreshCategorySelects();
   const cat=normalizeCategoryName(p.category||'OVERIG');
   $('cat').value=cat;
@@ -4618,7 +4570,7 @@ function duplicateProduct(id){
   photoData=p.photoData||'';if(photoData){$('preview').src=photoData;$('preview').classList.remove('hidden')}else $('preview').classList.add('hidden');
   updateMQSWeightUI();$('formTitle').textContent='Product dupliceren';$('cancelBtn').classList.remove('hidden');document.querySelector('[data-tab="add"]').click();window.scrollTo({top:0,behavior:'smooth'});
 }
-function reset(){showSpecialInProductEditor(null);stopMakroScanner();stopWarehouseScanner();editingMQSOriginalName='';setProductFormMode(false);['makroName','makroBarcode','makroExpiry1','makroExpiry2','makroExpiry3','makroStock1','makroStock2','makroStock3','warehouseName','warehouseBarcode','warehouseExpiry1','warehouseExpiry2','warehouseExpiry3','warehouseStock1','warehouseStock2','warehouseStock3'].forEach(id=>{if($(id))$(id).value='';});if($('mqsProductName'))$('mqsProductName').value='';['mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500','mqsCodeKg','mqsPriceKg','mqsCrtCodeKg','mqsCrtPriceKg','mqsCrtKg','mqsActualKg','mqsExpiry1','mqsExpiry2'].forEach(id=>{if($(id))$(id).value='';});$('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('mqsWeightPreset').value='';updateMQSWeightUI();$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('expiry1').value='';$('expiry2').value='';$('stockExp1').value='';$('stockExp2').value='';refreshCategorySelects();$('cat').value=allCategoryNames()[0]||'OVERIG';updateMQSWeightUI();$('barcode').value='';$('notes').value='';$('available').checked=true;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';$('formTitle').textContent='Nieuw product';$('cancelBtn').classList.add('hidden');$('foundBox').classList.add('hidden');$('foundBox').textContent='';stopScanner()}
+function reset(){stopMakroScanner();stopWarehouseScanner();editingMQSOriginalName='';setProductFormMode(false);['makroName','makroBarcode','makroExpiry1','makroExpiry2','makroExpiry3','makroStock1','makroStock2','makroStock3','warehouseName','warehouseBarcode','warehouseExpiry1','warehouseExpiry2','warehouseExpiry3','warehouseStock1','warehouseStock2','warehouseStock3'].forEach(id=>{if($(id))$(id).value='';});if($('mqsProductName'))$('mqsProductName').value='';['mqsCodeMqs','mqsPriceMqs','mqsCrtCodeMqs','mqsCrtPriceMqs','mqsCrtMqs','mqsCode500','mqsPrice500','mqsCrtCode500','mqsCrtPrice500','mqsCrt500','mqsCodeKg','mqsPriceKg','mqsCrtCodeKg','mqsCrtPriceKg','mqsCrtKg','mqsActualKg','mqsExpiry1','mqsExpiry2'].forEach(id=>{if($(id))$(id).value='';});$('editId').value='';$('codeEach').value='';$('codeP12').value='';$('codePack').value='';$('codeCrt').value='';$('name').value='';$('weightValue').value='';$('weightUnit').value='gr';$('mqsWeightPreset').value='';updateMQSWeightUI();$('priceEach').value='';$('priceP12').value='';$('pricePack').value='';$('unitsPerPack').value='';$('priceCrt').value='';$('unitsPerCarton').value='';$('expiry1').value='';$('expiry2').value='';$('stockExp1').value='';$('stockExp2').value='';refreshCategorySelects();$('cat').value=allCategoryNames()[0]||'OVERIG';updateMQSWeightUI();$('barcode').value='';$('notes').value='';$('available').checked=true;$('photoInput').value='';$('preview').classList.add('hidden');photoData='';$('formTitle').textContent='Nieuw product';$('cancelBtn').classList.add('hidden');$('foundBox').classList.add('hidden');$('foundBox').textContent='';stopScanner()}
 if($('addQuoteItemBtn'))$('addQuoteItemBtn').onclick=()=>addQuoteItem();
 if($('saveQuoteBtn'))$('saveQuoteBtn').onclick=saveQuote;
 if($('quotePdfBtn'))$('quotePdfBtn').onclick=makeQuotePdf;
@@ -5025,7 +4977,7 @@ function fillFloatingCategoryMenu(){
       render();
       requestAnimationFrame(()=>{
         const safeId='cat-'+name.replace(/[^a-z0-9]/gi,'-').toLowerCase();
-        document.getElementById(safeId)?.scrollIntoView({behavior:'smooth',block:'start'});
+        document.getElementById(safeId)?.scrollIntoView({behavior:'instant',block:'start'});
       });
     };
     list.appendChild(b);
