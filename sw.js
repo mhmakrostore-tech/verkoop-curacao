@@ -1,4 +1,4 @@
-const CACHE='verkoop-curacao-shell-v1';
+const CACHE='verkoop-curacao-shell-photo-v2';
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html'])).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(self.clients.claim())});
 self.addEventListener('fetch',event=>{

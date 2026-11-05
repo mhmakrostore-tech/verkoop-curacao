@@ -4068,7 +4068,7 @@ function render(){
         if(mqsExamplePhoto && !term.trim()){
           const exampleCard=document.createElement('article');
           exampleCard.className='card mqs-example-card';
-          exampleCard.innerHTML=`<div class="photo"><img loading="lazy" decoding="async" src="${mqsExamplePhoto}" alt="MQS voorbeeld"></div>`;
+          exampleCard.innerHTML=`<div class="photo"><img loading="eager" decoding="async" src="${mqsExamplePhoto}" alt="MQS voorbeeld"></div>`;
           container.appendChild(exampleCard);
         }
         const visibleGroups=mqsGrouped.filter(group=>{
@@ -4120,7 +4120,7 @@ function render(){
             </div>`;
           }).join('');
 
-          card.innerHTML=`<div class="photo">${imageProduct.photoData?`<img loading="lazy" decoding="async" src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
+          card.innerHTML=`<div class="photo">${imageProduct.photoData?`<img loading="eager" decoding="async" src="${imageProduct.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
             <div class="body">
               <div class="cat">MQS</div>
               <h2>${safe(mqsGroupDisplayName(group))}</h2>
@@ -4177,7 +4177,7 @@ function render(){
 
         const card=document.createElement('article');
         card.className='card';
-        card.innerHTML=`<div class="photo">${p.photoData?`<img loading="lazy" decoding="async" src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
+        card.innerHTML=`<div class="photo">${p.photoData?`<img loading="eager" decoding="async" src="${p.photoData}">`:'<div class="placeholder">Geen foto</div>'}</div>
           <div class="body">
             <div class="cat">${safe(p.category||'OVERIG')}</div>
             <h2>${safe(productDisplayName(p))}</h2>
@@ -4427,7 +4427,7 @@ function renderList(){
       for(const p of visible){
         const row=document.createElement('div');
         row.className='row';
-        row.innerHTML=`${p.photoData?`<img loading="lazy" decoding="async" src="${p.photoData}">`:'<div class="placeholder" style="width:80px;height:80px">Geen foto</div>'}
+        row.innerHTML=`${p.photoData?`<img loading="eager" decoding="async" src="${p.photoData}">`:'<div class="placeholder" style="width:80px;height:80px">Geen foto</div>'}
           <div><strong>${safe(productDisplayName(p))}</strong>
             <div class="meta">${normalizedCodes(p).each?`${String(p.category||'').trim().toUpperCase()==='MQS'?'MQS':'EACH'} Code: ${safe(normalizedCodes(p).each)}<br>`:''}${nearestExpiryDate(p)?`EXP: ${safe(formatDate(nearestExpiryDate(p)))}`:''}</div>
           </div>
