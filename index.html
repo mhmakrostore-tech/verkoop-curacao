@@ -3271,7 +3271,7 @@ function renderCustomerSuggestions(){
     if(seen.has(key))return false;
     seen.add(key);return true;
   }).sort((a,b)=>a.localeCompare(b,'nl',{sensitivity:'base'}));
-  const codes=products.flatMap(p=>[p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,productCodeForUnit(p,'each'),productCodeForUnit(p,'crt')]).filter(Boolean).map(String);
+  const codes=products.flatMap(p=>[p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,codeForUnit(p,'each'),codeForUnit(p,'crt')]).filter(Boolean).map(String);
   list.innerHTML=[...new Set([...names,...codes])].map(name=>`<option value="${safe(name)}"></option>`).join('');
 }
 
@@ -3363,7 +3363,7 @@ function refreshCreditProductSuggestions(){
     .map(p=>productDisplayName(p))
     .filter(Boolean))]
     .sort((a,b)=>a.localeCompare(b,'nl',{sensitivity:'base'}));
-  const codes=products.flatMap(p=>[p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,productCodeForUnit(p,'each'),productCodeForUnit(p,'crt')]).filter(Boolean).map(String);
+  const codes=products.flatMap(p=>[p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,codeForUnit(p,'each'),codeForUnit(p,'crt')]).filter(Boolean).map(String);
   list.innerHTML=[...new Set([...names,...codes])].map(name=>`<option value="${safe(name)}"></option>`).join('');
 }
 
@@ -3376,7 +3376,7 @@ function findCreditCatalogProduct(value){
   const query=String(value||'').trim().toLocaleLowerCase();
   if(!query)return null;
   return products.find(p=>productDisplayName(p).trim().toLocaleLowerCase()===query ||
-    [p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,productCodeForUnit(p,'each'),productCodeForUnit(p,'p12'),productCodeForUnit(p,'crt')]
+    [p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,codeForUnit(p,'each'),codeForUnit(p,'p12'),codeForUnit(p,'crt')]
       .some(c=>String(c??'').trim().toLocaleLowerCase()===query))||null;
 }
 function syncCreditProductRow(row){
@@ -3386,7 +3386,7 @@ function syncCreditProductRow(row){
   const product=findCreditCatalogProduct(input.value);
   if(!product){details.textContent='';return;}
   const unit=String(row.querySelector('.credit-unit')?.value||'EACH').toLowerCase();
-  const code=productCodeForUnit(product,unit)||product.code||product.barcode||'';
+  const code=codeForUnit(product,unit)||product.code||product.barcode||'';
   const name=productDisplayName(product);
   details.textContent='Product: '+name+(code?'  |  Code: '+code:'');
   row.dataset.creditProductId=String(product.id||'');
@@ -3426,7 +3426,7 @@ function getCreditItems(){
     const unit=String(row.querySelector('.credit-unit')?.value||'EACH').trim().toUpperCase();
     const qty=Number(row.querySelector('.credit-qty')?.value||0);
     const found=findCreditCatalogProduct(name) || products.find(p=>String(p.id||'')===row.dataset.creditProductId && (name===row.dataset.creditProductName || name===row.dataset.creditProductCode));
-    return {name:found?productDisplayName(found):name,qty,unitType:unit.toLowerCase(),unitLabel:unit,productId:found?.id||'',productCode:found?productCodeForUnit(found,unit.toLowerCase()):'',price:0};
+    return {name:found?productDisplayName(found):name,qty,unitType:unit.toLowerCase(),unitLabel:unit,productId:found?.id||'',productCode:found?codeForUnit(found,unit.toLowerCase()):'',price:0};
   }).filter(i=>i.name&&i.qty>0);
 }
 
