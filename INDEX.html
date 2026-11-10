@@ -4765,6 +4765,19 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
   $(b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='credit'){
+    // Reassert the selected tab after any synchronous catalog refresh on the first click.
+    queueMicrotask(()=>{
+      if(b.classList.contains('active'))return;
+      const active=document.querySelector('.tabs button.active');
+      if(active?.dataset.tab==='catalog'){
+        active.classList.remove('active');
+        $('catalog')?.classList.remove('active');
+        b.classList.add('active');
+        $('credit')?.classList.add('active');
+      }
+    });
+  }
   if(b.dataset.tab==='cpHistory')loadCounterpointHistoryOnce();
 });
 $('saveCatalogOrderBtn').onclick=saveCatalogOrder;$('whatsappCatalogOrderBtn').onclick=sendCatalogOrderWhatsApp;$('printCatalogOrderBtn').onclick=printCatalogOrder;$('clearCatalogOrderBtn').onclick=clearCatalogOrder;
