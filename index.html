@@ -111,7 +111,7 @@ window.addEventListener('unhandledrejection',function(e){
 <section id="login" class="login hidden"><div class="login-card"><h1>Verkoop Curaçao</h1><p>Log in met het toegewezen account.</p><label>E-mailadres</label><input id="loginEmail" type="email" autocomplete="username" placeholder="naam@curacao.com"><label>Wachtwoord</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Wachtwoord"><button id="loginBtn" class="btn primary" type="button" style="margin-top:14px;width:100%">Inloggen</button><div id="loginMsg" class="message"></div></div></section>
 <div id="app" class="hidden">
 <header class="top"><div><h1>Verkoop Curaçao</h1><small id="email"></small></div><button id="logoutBtn" class="btn ghost">Uitloggen</button></header>
-<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
+<nav class="tabs"><button data-tab="catalog" class="active">Catalogus</button><button data-tab="add">Product toevoegen</button><button data-tab="credit">CREDIT / KAMBIO</button><button data-tab="customers">Klanten & historie</button><button data-tab="cpHistory">Klant Historie</button><button data-tab="pick">ORDER PICK <span id="pickTabBadge" class="pick-unread hidden">0</span></button></nav>
 <main>
 <section id="catalog" class="tab active">
 
@@ -441,8 +441,9 @@ window.addEventListener('unhandledrejection',function(e){
 
 <section id="credit" class="tab">
   <div class="panel">
-    <h2>CREDIT – teruggenomen producten</h2>
-    <p class="meta">Geen prijzen. Kies een product uit de Catalogus of typ zelf een product dat niet in de Catalogus staat.</p>
+    <h2 id="creditModeTitle">CREDIT – teruggenomen producten</h2>
+    <div class="order-type-options"><label><input type="radio" name="creditMode" value="CREDIT" checked> CREDIT</label><label><input type="radio" name="creditMode" value="KAMBIO"> KAMBIO</label></div>
+    <p class="meta">Geen prijzen. Zoek op productcode of naam in de volledige catalogus, ook verborgen producten.</p>
     <div class="sales-grid">
       <div><label>Klantnaam</label><input id="creditCustomerName" placeholder="Naam klant" list="customerSuggestions" autocomplete="off"></div>
       <div><label>Notitie / reden</label><input id="creditNote" placeholder="Optioneel"></div>
@@ -3314,7 +3315,8 @@ function renderCustomerSuggestions(){
     if(seen.has(key))return false;
     seen.add(key);return true;
   }).sort((a,b)=>a.localeCompare(b,'nl',{sensitivity:'base'}));
-  list.innerHTML=names.map(name=>`<option value="${safe(name)}"></option>`).join('');
+  const codes=products.flatMap(p=>[p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,productCodeForUnit(p,'each'),productCodeForUnit(p,'crt')]).filter(Boolean).map(String);
+  list.innerHTML=[...new Set([...names,...codes])].map(name=>`<option value="${safe(name)}"></option>`).join('');
 }
 
 function renderCustomerManager(){
@@ -3402,11 +3404,11 @@ function refreshCreditProductSuggestions(){
   const list=$('creditProductSuggestions');
   if(!list)return;
   const names=[...new Set(products
-    .filter(p=>!p.internalOnly)
     .map(p=>productDisplayName(p))
     .filter(Boolean))]
     .sort((a,b)=>a.localeCompare(b,'nl',{sensitivity:'base'}));
-  list.innerHTML=names.map(name=>`<option value="${safe(name)}"></option>`).join('');
+  const codes=products.flatMap(p=>[p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,productCodeForUnit(p,'each'),productCodeForUnit(p,'crt')]).filter(Boolean).map(String);
+  list.innerHTML=[...new Set([...names,...codes])].map(name=>`<option value="${safe(name)}"></option>`).join('');
 }
 
 function creditUnitOptions(selected='EACH'){
@@ -3440,8 +3442,8 @@ function getCreditItems(){
     const name=String(row.querySelector('.credit-product')?.value||'').trim();
     const unit=String(row.querySelector('.credit-unit')?.value||'EACH').trim().toUpperCase();
     const qty=Number(row.querySelector('.credit-qty')?.value||0);
-    const found=products.find(p=>productDisplayName(p).toLowerCase()===name.toLowerCase());
-    return {name,qty,unitType:unit.toLowerCase(),unitLabel:unit,productId:found?.id||'',productCode:found?productCodeForUnit(found,unit.toLowerCase()):'',price:0};
+    const found=products.find(p=>productDisplayName(p).toLowerCase()===name.toLowerCase() || [p.code,p.barcode,p.eachCode,p.p12Code,p.crtCode,productCodeForUnit(p,'each'),productCodeForUnit(p,'p12'),productCodeForUnit(p,'crt')].some(c=>String(c||'').toLowerCase()===name.toLowerCase()));
+    return {name:found?productDisplayName(found):name,qty,unitType:unit.toLowerCase(),unitLabel:unit,productId:found?.id||'',productCode:found?productCodeForUnit(found,unit.toLowerCase()):'',price:0};
   }).filter(i=>i.name&&i.qty>0);
 }
 
@@ -3451,13 +3453,14 @@ async function saveCredit(){
   const items=getCreditItems();
   if(!customerName)return msg($('creditMessage'),'Vul klantnaam in.',true);
   if(!items.length)return msg($('creditMessage'),'Voeg minstens één product en aantal toe.',true);
+  const mode=document.querySelector('input[name="creditMode"]:checked')?.value==='KAMBIO'?'KAMBIO':'CREDIT';
   try{
     await ensureCustomerExists(customerName);
     await addDoc(collection(db,'sales'),{
       recordType:'credit',
       isCredit:true,
       customerName,
-      orderType:'CREDIT',
+      orderType:mode,
       note:String($('creditNote')?.value||'').trim(),
       items,
       total:0,
@@ -3467,7 +3470,7 @@ async function saveCredit(){
       createdAt:serverTimestamp(),
       updatedAt:serverTimestamp()
     });
-    msg($('creditMessage'),'CREDIT opgeslagen en toegevoegd aan de verkoophistorie van de klant.');
+    msg($('creditMessage'),mode+' opgeslagen en toegevoegd aan de verkoophistorie van de klant.');
     clearCreditForm();
   }catch(e){msg($('creditMessage'),'CREDIT opslaan mislukt: '+e.message,true);}
 }
@@ -4844,6 +4847,7 @@ if($('enableNotificationsBtn'))$('enableNotificationsBtn').onclick=enableNotific
 updateNotificationStatus();
 $('addSaleItemBtn').onclick=()=>addSaleItem();
 if($('addCreditItemBtn'))$('addCreditItemBtn').onclick=()=>addCreditItem();
+document.querySelectorAll('input[name="creditMode"]').forEach(r=>r.addEventListener('change',()=>{const m=document.querySelector('input[name="creditMode"]:checked')?.value||'CREDIT';$('creditModeTitle').textContent=m+(m==='KAMBIO'?' – hetzelfde product omruilen':' – teruggenomen producten');$('saveCreditBtn').textContent=m+' opslaan';}));
 if($('saveCreditBtn'))$('saveCreditBtn').onclick=saveCredit;
 if($('clearCreditBtn'))$('clearCreditBtn').onclick=clearCreditForm;
 refreshCreditProductSuggestions();
